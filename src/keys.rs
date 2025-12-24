@@ -9,7 +9,7 @@ use sha2::{Sha256, Digest};
 
 // Post-quantum cryptography imports
 #[cfg(feature = "ml-kem")]
-use pqcrypto_kyber;
+use ml_kem::{EncodedSizeUser, KemCore, kem::Kem, MlKem768Params, MlKem1024Params};
 #[cfg(feature = "post-quantum")]
 use pqcrypto_dilithium;
 #[cfg(feature = "post-quantum")]
@@ -864,11 +864,10 @@ impl SignerKey for RsaKey {
 /// }
 /// ```
 pub struct MlKem768Key {
-    public_key: pqcrypto_kyber::pqcrypto_kyber768::PublicKey,
-    secret_key: pqcrypto_kyber::pqcrypto_kyber768::SecretKey,
+    decaps_key: <Kem<MlKem768Params> as KemCore>::DecapsulationKey,
+    encaps_key: <Kem<MlKem768Params> as KemCore>::EncapsulationKey,
 }
 
-#[cfg(feature = "post-quantum")]
 #[cfg(feature = "ml-kem")]
 impl MlKem768Key {
     /// Generate a new ML-KEM-768 key pair.
@@ -880,11 +879,25 @@ impl MlKem768Key {
     /// # Returns
     ///
     /// A new `MlKem768Key` instance
-    pub fn generate<R: RngCore + CryptoRng>(_rng: &mut R) -> Self {
-        let (public_key, secret_key) = pqcrypto_kyber::pqcrypto_kyber768::keypair();
+    pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
+        // ml-kem uses rand_core 0.9, but rand 0.8 uses rand_core 0.6
+        // Create an adapter that implements rand_core 0.9 traits
+        use rand_core_09::{RngCore as RngCore09, CryptoRng as CryptoRng09};
+        
+        struct RngAdapter<'a, R: RngCore + CryptoRng>(&'a mut R);
+        impl<'a, R: RngCore + CryptoRng> RngCore09 for RngAdapter<'a, R> {
+            fn next_u32(&mut self) -> u32 { self.0.next_u32() }
+            fn next_u64(&mut self) -> u64 { self.0.next_u64() }
+            fn fill_bytes(&mut self, dest: &mut [u8]) { self.0.fill_bytes(dest) }
+            // try_fill_bytes has a default implementation that calls fill_bytes, so we don't need to implement it
+        }
+        impl<'a, R: RngCore + CryptoRng> CryptoRng09 for RngAdapter<'a, R> {}
+        
+        let mut adapter = RngAdapter(rng);
+        let (dk, ek) = <Kem<MlKem768Params> as KemCore>::generate(&mut adapter);
         Self {
-            public_key,
-            secret_key,
+            decaps_key: dk,
+            encaps_key: ek,
         }
     }
 
@@ -894,7 +907,7 @@ impl MlKem768Key {
     ///
     /// Public key bytes (1184 bytes for ML-KEM-768)
     pub fn public_key_bytes(&self) -> Vec<u8> {
-        pqcrypto_kyber::pqcrypto_kyber768::public_key_to_bytes(&self.public_key).to_vec()
+        self.encaps_key.as_bytes().to_vec()
     }
 
     /// Get the private key bytes.
@@ -907,7 +920,7 @@ impl MlKem768Key {
     ///
     /// Private keys are sensitive cryptographic material.
     pub fn private_key_bytes(&self) -> Vec<u8> {
-        pqcrypto_kyber::pqcrypto_kyber768::secret_key_to_bytes(&self.secret_key).to_vec()
+        self.decaps_key.as_bytes().to_vec()
     }
 
     /// Create from private key bytes.
@@ -921,101 +934,113 @@ impl MlKem768Key {
     /// * `Ok(MlKem768Key)` - Reconstructed key pair
     /// * `Err(BottleError::InvalidKeyType)` - If the key format is invalid
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        let secret_key = pqcrypto_kyber::pqcrypto_kyber768::secret_key_from_bytes(bytes)
+        if bytes.len() != 2400 {
+            return Err(BottleError::InvalidKeyType);
+        }
+        let bytes_array: [u8; 2400] = bytes.try_into()
             .map_err(|_| BottleError::InvalidKeyType)?;
-        // Derive public key from secret key
-        let public_key = pqcrypto_kyber::pqcrypto_kyber768::public_key_from_secret_key(&secret_key);
+        let decaps_key = <Kem<MlKem768Params> as KemCore>::DecapsulationKey::from_bytes((&bytes_array).into());
+        // Extract the encapsulation key from the decapsulation key
+        // The decapsulation key contains the encapsulation key, extract it
+        // ML-KEM-768: decapsulation key is 2400 bytes, encapsulation key is 1184 bytes (at the start)
+        let encaps_key_bytes: [u8; 1184] = bytes_array[..1184].try_into()
+            .map_err(|_| BottleError::InvalidKeyType)?;
+        let encaps_key = <Kem<MlKem768Params> as KemCore>::EncapsulationKey::from_bytes((&encaps_key_bytes).into());
         Ok(Self {
-            public_key,
-            secret_key,
+            decaps_key,
+            encaps_key,
         })
     }
 
-    /// Get the public key reference (for encryption operations).
-    pub fn public_key(&self) -> &pqcrypto_kyber::pqcrypto_kyber768::PublicKey {
-        &self.public_key
+    /// Get the encapsulation key reference (for encryption operations).
+    pub fn encapsulation_key(&self) -> &<Kem<MlKem768Params> as KemCore>::EncapsulationKey {
+        &self.encaps_key
     }
 
-    /// Get the secret key reference (for decryption operations).
-    pub fn secret_key(&self) -> &pqcrypto_kyber::pqcrypto_kyber768::SecretKey {
-        &self.secret_key
+    /// Get the decapsulation key reference (for decryption operations).
+    pub fn decapsulation_key(&self) -> &<Kem<MlKem768Params> as KemCore>::DecapsulationKey {
+        &self.decaps_key
     }
 }
 
-#[cfg(feature = "ml-kem")]
-impl SignerKey for MlKem768Key {
-    fn fingerprint(&self) -> Vec<u8> {
-        crate::hash::sha256(&self.public_key_bytes())
-    }
-
-    fn public_key(&self) -> Vec<u8> {
-        self.public_key_bytes()
-    }
-}
+// Note: ML-KEM keys are for encryption, not signing, so they don't implement SignerKey
 
 #[cfg(feature = "ml-kem")]
 /// ML-KEM-1024 key pair for post-quantum encryption.
 ///
 /// ML-KEM-1024 provides 256-bit security level.
 pub struct MlKem1024Key {
-    public_key: pqcrypto_kyber::pqcrypto_kyber1024::PublicKey,
-    secret_key: pqcrypto_kyber::pqcrypto_kyber1024::SecretKey,
+    decaps_key: <Kem<MlKem1024Params> as KemCore>::DecapsulationKey,
+    encaps_key: <Kem<MlKem1024Params> as KemCore>::EncapsulationKey,
 }
 
-#[cfg(feature = "post-quantum")]
 #[cfg(feature = "ml-kem")]
 impl MlKem1024Key {
     /// Generate a new ML-KEM-1024 key pair.
-    pub fn generate<R: RngCore + CryptoRng>(_rng: &mut R) -> Self {
-        let (public_key, secret_key) = pqcrypto_kyber::pqcrypto_kyber1024::keypair();
+    pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
+        // ml-kem uses rand_core 0.9, but rand 0.8 uses rand_core 0.6
+        // Create an adapter that implements rand_core 0.9 traits
+        use rand_core_09::{RngCore as RngCore09, CryptoRng as CryptoRng09};
+        
+        struct RngAdapter<'a, R: RngCore + CryptoRng>(&'a mut R);
+        impl<'a, R: RngCore + CryptoRng> RngCore09 for RngAdapter<'a, R> {
+            fn next_u32(&mut self) -> u32 { self.0.next_u32() }
+            fn next_u64(&mut self) -> u64 { self.0.next_u64() }
+            fn fill_bytes(&mut self, dest: &mut [u8]) { self.0.fill_bytes(dest) }
+            // try_fill_bytes has a default implementation that calls fill_bytes, so we don't need to implement it
+        }
+        impl<'a, R: RngCore + CryptoRng> CryptoRng09 for RngAdapter<'a, R> {}
+        
+        let mut adapter = RngAdapter(rng);
+        let (dk, ek) = <Kem<MlKem1024Params> as KemCore>::generate(&mut adapter);
         Self {
-            public_key,
-            secret_key,
+            decaps_key: dk,
+            encaps_key: ek,
         }
     }
 
     /// Get the public key bytes.
     pub fn public_key_bytes(&self) -> Vec<u8> {
-        pqcrypto_kyber::pqcrypto_kyber1024::public_key_to_bytes(&self.public_key).to_vec()
+        self.encaps_key.as_bytes().to_vec()
     }
 
     /// Get the private key bytes.
     pub fn private_key_bytes(&self) -> Vec<u8> {
-        pqcrypto_kyber::pqcrypto_kyber1024::secret_key_to_bytes(&self.secret_key).to_vec()
+        self.decaps_key.as_bytes().to_vec()
     }
 
     /// Create from private key bytes.
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        let secret_key = pqcrypto_kyber::pqcrypto_kyber1024::secret_key_from_bytes(bytes)
+        if bytes.len() != 3168 {
+            return Err(BottleError::InvalidKeyType);
+        }
+        let bytes_array: [u8; 3168] = bytes.try_into()
             .map_err(|_| BottleError::InvalidKeyType)?;
-        let public_key = pqcrypto_kyber::pqcrypto_kyber1024::public_key_from_secret_key(&secret_key);
+        let decaps_key = <Kem<MlKem1024Params> as KemCore>::DecapsulationKey::from_bytes((&bytes_array).into());
+        // Extract the encapsulation key from the decapsulation key
+        // The decapsulation key contains the encapsulation key, extract it
+        // ML-KEM-1024: decapsulation key is 3168 bytes, encapsulation key is 1568 bytes (at the start)
+        let encaps_key_bytes: [u8; 1568] = bytes_array[..1568].try_into()
+            .map_err(|_| BottleError::InvalidKeyType)?;
+        let encaps_key = <Kem<MlKem1024Params> as KemCore>::EncapsulationKey::from_bytes((&encaps_key_bytes).into());
         Ok(Self {
-            public_key,
-            secret_key,
+            decaps_key,
+            encaps_key,
         })
     }
 
-    /// Get the public key reference.
-    pub fn public_key(&self) -> &pqcrypto_kyber::pqcrypto_kyber1024::PublicKey {
-        &self.public_key
+    /// Get the encapsulation key reference (for encryption operations).
+    pub fn encapsulation_key(&self) -> &<Kem<MlKem1024Params> as KemCore>::EncapsulationKey {
+        &self.encaps_key
     }
 
-    /// Get the secret key reference.
-    pub fn secret_key(&self) -> &pqcrypto_kyber::pqcrypto_kyber1024::SecretKey {
-        &self.secret_key
+    /// Get the decapsulation key reference (for decryption operations).
+    pub fn decapsulation_key(&self) -> &<Kem<MlKem1024Params> as KemCore>::DecapsulationKey {
+        &self.decaps_key
     }
 }
 
-#[cfg(feature = "ml-kem")]
-impl SignerKey for MlKem1024Key {
-    fn fingerprint(&self) -> Vec<u8> {
-        crate::hash::sha256(&self.public_key_bytes())
-    }
-
-    fn public_key(&self) -> Vec<u8> {
-        self.public_key_bytes()
-    }
-}
+// Note: ML-KEM keys are for encryption, not signing, so they don't implement SignerKey
 
 #[cfg(feature = "post-quantum")]
 /// ML-DSA-44 key pair for post-quantum signatures.

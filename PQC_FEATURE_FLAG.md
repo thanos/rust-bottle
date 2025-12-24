@@ -1,8 +1,8 @@
 # Post-Quantum Cryptography Feature Flag
 
-## Issue
+## Issue (RESOLVED)
 
-The `pqcrypto-kyber` crate (version 0.5) has compatibility issues on macOS/ARM (AArch64) platforms. 
+The `pqcrypto-kyber` crate (version 0.5) had compatibility issues on macOS/ARM (AArch64) platforms, which have been **resolved** via a local patch. 
 
 ### Technical Details
 
@@ -42,16 +42,7 @@ cargo build --features post-quantum
 cargo test --features post-quantum
 ```
 
-**Note**: On macOS/ARM, you may still encounter AVX2-related compilation errors with `pqcrypto-kyber`. If this occurs, you have several options:
-
-1. **Use only ML-DSA and SLH-DSA** (signatures work, encryption doesn't):
-   - Comment out `pqcrypto-kyber` in `Cargo.toml`
-   - Remove `pqcrypto-kyber` from the `post-quantum` feature
-   - ML-DSA and SLH-DSA should work fine
-
-2. **Wait for pqcrypto-kyber fixes**: The crate maintainers may fix the AVX2 issues in future versions
-
-3. **Use alternative ML-KEM implementations**: Consider other Rust ML-KEM crates that don't have AVX2 issues
+**Note**: ML-KEM now works on all platforms including macOS/ARM. The AVX2 compilation issue has been fixed via a local patch that adds proper `#[cfg]` guards to AVX2-specific functions. The patch is automatically applied via Cargo's `[patch.crates-io]` feature.
 
 ## What's Included
 
@@ -93,15 +84,15 @@ cargo test --features post-quantum
 
 ## Recommendations
 
-1. **For production use on macOS/ARM**: Currently, only ML-DSA and SLH-DSA signatures are reliable. ML-KEM encryption may not compile.
+1. **For production use on all platforms**: Full PQC support (ML-KEM, ML-DSA, SLH-DSA) is now available on all platforms including macOS/ARM.
 
-2. **For x86_64 Linux/Windows**: Full PQC support should work when the feature is enabled.
+2. **For maximum compatibility**: Keep PQC disabled by default and enable it only when needed.
 
-3. **For maximum compatibility**: Keep PQC disabled by default and enable it only when needed and when the platform supports it.
+## Technical Details
 
-## Future Improvements
+The fix involved patching `pqcrypto-kyber` v0.5.0 to add `#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]` guards to AVX2-specific functions (`keypair_avx2`, `encapsulate_avx2`, `decapsulate_avx2`) in the `kyber512.rs`, `kyber768.rs`, and `kyber1024.rs` modules. This ensures that:
+- On x86/x86_64: AVX2-optimized code is used when available, falling back to clean implementation
+- On AArch64 (macOS/ARM): Only the clean (generic/portable) implementation is compiled and used
 
-- Monitor `pqcrypto-kyber` for fixes to AVX2 issues
-- Consider alternative ML-KEM implementations
-- Add platform-specific feature flags (e.g., `post-quantum-x86_64`)
+The patch is located in `patches/pqcrypto-kyber-0.5.0/` and is automatically applied via Cargo's `[patch.crates-io]` feature in `Cargo.toml`.
 

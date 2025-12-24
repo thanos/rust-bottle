@@ -608,6 +608,7 @@ fn test_mlkem_key_bytes() {
     
     // Verify key bytes are different
     assert_ne!(pub_bytes, priv_bytes);
+    
 }
 
 #[cfg(feature = "post-quantum")]
