@@ -7,7 +7,7 @@ use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 #[cfg(feature = "ml-kem")]
 use ml_kem::{EncodedSizeUser, KemCore, kem::{Kem, Encapsulate, Decapsulate}, MlKem768Params, MlKem1024Params};
 #[cfg(feature = "ml-kem")]
-use zerocopy::IntoBytes;
+use zerocopy::AsBytes;
 
 /// ECDH encryption using P-256 elliptic curve.
 ///
@@ -528,9 +528,11 @@ pub fn mlkem768_decrypt(
     let mlkem_ct_bytes = &ciphertext[..CT_SIZE];
     let ct_array: [u8; CT_SIZE] = mlkem_ct_bytes.try_into()
         .map_err(|_| BottleError::InvalidFormat)?;
-    // Ciphertext is an associated type of KemCore, use the correct type
+    // Ciphertext type is an associated type of Encapsulate trait on EncapsulationKey
     type MlKem768 = Kem<MlKem768Params>;
-    let mlkem_ct = <MlKem768 as KemCore>::Ciphertext::from_bytes((&ct_array).into());
+    type MlKem768EncKey = <MlKem768 as KemCore>::EncapsulationKey;
+    type MlKem768Ciphertext = <MlKem768EncKey as Encapsulate>::Ciphertext;
+    let mlkem_ct = MlKem768Ciphertext::clone_from_slice(&ct_array);
     let aes_ct = &ciphertext[CT_SIZE..];
     
     // Decapsulate to get shared secret
@@ -632,9 +634,11 @@ pub fn mlkem1024_decrypt(
     }
     let ct_array: [u8; CT_SIZE] = ciphertext[..CT_SIZE].try_into()
         .map_err(|_| BottleError::InvalidFormat)?;
-    // Ciphertext is an associated type of KemCore, use the correct type
+    // Ciphertext type is an associated type of Encapsulate trait on EncapsulationKey
     type MlKem1024 = Kem<MlKem1024Params>;
-    let mlkem_ct = <MlKem1024 as KemCore>::Ciphertext::from_bytes((&ct_array).into());
+    type MlKem1024EncKey = <MlKem1024 as KemCore>::EncapsulationKey;
+    type MlKem1024Ciphertext = <MlKem1024EncKey as Encapsulate>::Ciphertext;
+    let mlkem_ct = MlKem1024Ciphertext::clone_from_slice(&ct_array);
     let aes_ct = &ciphertext[CT_SIZE..];
     
     // Decapsulate to get shared secret
