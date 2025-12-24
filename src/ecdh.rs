@@ -4,6 +4,13 @@ use p256::{PublicKey, SecretKey};
 use rand::{CryptoRng, RngCore};
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 
+#[cfg(feature = "ml-kem")]
+use ml_kem::{EncodedSizeUser, KemCore, kem::Kem, MlKem768Params, MlKem1024Params};
+#[cfg(feature = "ml-kem")]
+use hybrid_array::{Array, sizes::{U1088, U1568}};
+#[cfg(feature = "ml-kem")]
+use zerocopy::AsBytes;
+
 /// ECDH encryption using P-256 elliptic curve.
 ///
 /// This function performs Elliptic Curve Diffie-Hellman key exchange using
@@ -444,25 +451,44 @@ pub fn ecdh_decrypt(ciphertext: &[u8], private_key: &[u8]) -> Result<Vec<u8>> {
 /// * `Err(BottleError::InvalidKeyType)` - If the key format is invalid
 #[cfg(feature = "ml-kem")]
 pub fn mlkem768_encrypt<R: RngCore + CryptoRng>(
-    _rng: &mut R,
+    rng: &mut R,
     plaintext: &[u8],
     public_key: &[u8],
 ) -> Result<Vec<u8>> {
-    // Parse public key
-    let pub_key = pqcrypto_kyber::pqcrypto_kyber768::public_key_from_bytes(public_key)
+    // Parse public key (encapsulation key)
+    // from_bytes expects a generic-array Array type, so we need to convert
+    if public_key.len() != 1184 {
+        return Err(BottleError::InvalidKeyType);
+    }
+    let pub_key_array: [u8; 1184] = public_key.try_into()
         .map_err(|_| BottleError::InvalidKeyType)?;
+    let ek = <Kem<MlKem768Params> as KemCore>::EncapsulationKey::from_bytes((&pub_key_array).into());
     
+    // ml-kem uses rand_core 0.9, create adapter
+    use rand_core_09::{RngCore as RngCore09, CryptoRng as CryptoRng09};
+    struct RngAdapter<'a, R: RngCore + CryptoRng>(&'a mut R);
+    impl<'a, R: RngCore + CryptoRng> RngCore09 for RngAdapter<'a, R> {
+        fn next_u32(&mut self) -> u32 { self.0.next_u32() }
+        fn next_u64(&mut self) -> u64 { self.0.next_u64() }
+        fn fill_bytes(&mut self, dest: &mut [u8]) { self.0.fill_bytes(dest) }
+        // try_fill_bytes has a default implementation that calls fill_bytes, so we don't need to implement it
+    }
+    impl<'a, R: RngCore + CryptoRng> CryptoRng09 for RngAdapter<'a, R> {}
+    
+    let mut adapter = RngAdapter(rng);
     // Encapsulate (generate shared secret and ciphertext)
-    let (ciphertext, shared_secret) = pqcrypto_kyber::pqcrypto_kyber768::encapsulate(&pub_key);
+    use ml_kem::kem::Encapsulate;
+    let (ct, shared_secret) = ek.encapsulate(&mut adapter)
+        .map_err(|_| BottleError::Encryption("ML-KEM encapsulation failed".to_string()))?;
     
-    // Derive AES key from shared secret
+    // Derive AES key from shared secret (shared_secret is [u8; 32])
     let key = derive_key(&shared_secret);
     
     // Encrypt plaintext with AES-GCM
     let encrypted = encrypt_aes_gcm(&key, plaintext)?;
     
     // Combine: ML-KEM ciphertext + AES-GCM encrypted data
-    let mut result = ciphertext.to_vec();
+    let mut result = ct.as_bytes().to_vec();
     result.extend_from_slice(&encrypted);
     
     Ok(result)
@@ -486,21 +512,35 @@ pub fn mlkem768_decrypt(
     ciphertext: &[u8],
     secret_key: &[u8],
 ) -> Result<Vec<u8>> {
-    // Parse secret key
-    let sec_key = pqcrypto_kyber::pqcrypto_kyber768::secret_key_from_bytes(secret_key)
+    // Parse secret key (decapsulation key)
+    if secret_key.len() != 2400 {
+        return Err(BottleError::InvalidKeyType);
+    }
+    let sec_key_array: [u8; 2400] = secret_key.try_into()
         .map_err(|_| BottleError::InvalidKeyType)?;
+    let dk = <Kem<MlKem768Params> as KemCore>::DecapsulationKey::from_bytes((&sec_key_array).into());
     
     // Extract ML-KEM ciphertext (first 1088 bytes for ML-KEM-768)
-    if ciphertext.len() < 1088 {
+    const CT_SIZE: usize = 1088; // ML-KEM-768 ciphertext size
+    // AES-GCM needs at least 12 bytes (nonce) + 16 bytes (tag) = 28 bytes minimum
+    if ciphertext.len() < CT_SIZE + 28 {
         return Err(BottleError::InvalidFormat);
     }
-    let mlkem_ct = &ciphertext[..1088];
-    let aes_ct = &ciphertext[1088..];
+    // Extract exactly CT_SIZE bytes for the ML-KEM ciphertext
+    let mlkem_ct_bytes = &ciphertext[..CT_SIZE];
+    let ct_array: [u8; CT_SIZE] = mlkem_ct_bytes.try_into()
+        .map_err(|_| BottleError::InvalidFormat)?;
+    // Ciphertext type: use Array with size constant from hybrid_array::sizes
+    // ML-KEM-768 ciphertext is 1088 bytes
+    let mlkem_ct = Array::<u8, U1088>::clone_from_slice(&ct_array);
+    let aes_ct = &ciphertext[CT_SIZE..];
     
     // Decapsulate to get shared secret
-    let shared_secret = pqcrypto_kyber::pqcrypto_kyber768::decapsulate(mlkem_ct, &sec_key);
+    use ml_kem::kem::Decapsulate;
+    let shared_secret = dk.decapsulate(&mlkem_ct)
+        .map_err(|_| BottleError::Decryption("ML-KEM decapsulation failed".to_string()))?;
     
-    // Derive AES key
+    // Derive AES key (shared_secret is [u8; 32])
     let key = derive_key(&shared_secret);
     
     // Decrypt with AES-GCM
@@ -521,18 +561,43 @@ pub fn mlkem768_decrypt(
 /// * `Ok(Vec<u8>)` - Encrypted data: ML-KEM ciphertext (1568 bytes) + AES-GCM encrypted message
 #[cfg(feature = "ml-kem")]
 pub fn mlkem1024_encrypt<R: RngCore + CryptoRng>(
-    _rng: &mut R,
+    rng: &mut R,
     plaintext: &[u8],
     public_key: &[u8],
 ) -> Result<Vec<u8>> {
-    let pub_key = pqcrypto_kyber::pqcrypto_kyber1024::public_key_from_bytes(public_key)
+    // Parse public key (encapsulation key)
+    if public_key.len() != 1568 {
+        return Err(BottleError::InvalidKeyType);
+    }
+    let pub_key_array: [u8; 1568] = public_key.try_into()
         .map_err(|_| BottleError::InvalidKeyType)?;
+    let ek = <Kem<MlKem1024Params> as KemCore>::EncapsulationKey::from_bytes((&pub_key_array).into());
     
-    let (ciphertext, shared_secret) = pqcrypto_kyber::pqcrypto_kyber1024::encapsulate(&pub_key);
+    // ml-kem uses rand_core 0.9, create adapter
+    use rand_core_09::{RngCore as RngCore09, CryptoRng as CryptoRng09};
+    struct RngAdapter<'a, R: RngCore + CryptoRng>(&'a mut R);
+    impl<'a, R: RngCore + CryptoRng> RngCore09 for RngAdapter<'a, R> {
+        fn next_u32(&mut self) -> u32 { self.0.next_u32() }
+        fn next_u64(&mut self) -> u64 { self.0.next_u64() }
+        fn fill_bytes(&mut self, dest: &mut [u8]) { self.0.fill_bytes(dest) }
+        // try_fill_bytes has a default implementation that calls fill_bytes, so we don't need to implement it
+    }
+    impl<'a, R: RngCore + CryptoRng> CryptoRng09 for RngAdapter<'a, R> {}
+    
+    let mut adapter = RngAdapter(rng);
+    // Encapsulate (generate shared secret and ciphertext)
+    use ml_kem::kem::Encapsulate;
+    let (ct, shared_secret) = ek.encapsulate(&mut adapter)
+        .map_err(|_| BottleError::Encryption("ML-KEM encapsulation failed".to_string()))?;
+    
+    // Derive AES key from shared secret (shared_secret is [u8; 32])
     let key = derive_key(&shared_secret);
+    
+    // Encrypt plaintext with AES-GCM
     let encrypted = encrypt_aes_gcm(&key, plaintext)?;
     
-    let mut result = ciphertext.to_vec();
+    // Combine: ML-KEM ciphertext + AES-GCM encrypted data
+    let mut result = ct.as_bytes().to_vec();
     result.extend_from_slice(&encrypted);
     Ok(result)
 }
@@ -553,17 +618,33 @@ pub fn mlkem1024_decrypt(
     ciphertext: &[u8],
     secret_key: &[u8],
 ) -> Result<Vec<u8>> {
-    let sec_key = pqcrypto_kyber::pqcrypto_kyber1024::secret_key_from_bytes(secret_key)
+    // Parse secret key (decapsulation key)
+    if secret_key.len() != 3168 {
+        return Err(BottleError::InvalidKeyType);
+    }
+    let sec_key_array: [u8; 3168] = secret_key.try_into()
         .map_err(|_| BottleError::InvalidKeyType)?;
+    let dk = <Kem<MlKem1024Params> as KemCore>::DecapsulationKey::from_bytes((&sec_key_array).into());
     
-    // ML-KEM-1024 ciphertext is 1568 bytes
-    if ciphertext.len() < 1568 {
+    // Extract ML-KEM ciphertext (first 1568 bytes for ML-KEM-1024)
+    const CT_SIZE: usize = 1568; // ML-KEM-1024 ciphertext size
+    // AES-GCM needs at least 12 bytes (nonce) + 16 bytes (tag) = 28 bytes minimum
+    if ciphertext.len() < CT_SIZE + 28 {
         return Err(BottleError::InvalidFormat);
     }
-    let mlkem_ct = &ciphertext[..1568];
-    let aes_ct = &ciphertext[1568..];
+    let ct_array: [u8; CT_SIZE] = ciphertext[..CT_SIZE].try_into()
+        .map_err(|_| BottleError::InvalidFormat)?;
+    // Ciphertext type: use Array with size constant from hybrid_array::sizes
+    // ML-KEM-1024 ciphertext is 1568 bytes
+    let mlkem_ct = Array::<u8, U1568>::clone_from_slice(&ct_array);
+    let aes_ct = &ciphertext[CT_SIZE..];
     
-    let shared_secret = pqcrypto_kyber::pqcrypto_kyber1024::decapsulate(mlkem_ct, &sec_key);
+    // Decapsulate to get shared secret
+    use ml_kem::kem::Decapsulate;
+    let shared_secret = dk.decapsulate(&mlkem_ct)
+        .map_err(|_| BottleError::Decryption("ML-KEM decapsulation failed".to_string()))?;
+    
+    // Derive AES key (shared_secret is [u8; 32])
     let key = derive_key(&shared_secret);
     decrypt_aes_gcm(&key, aes_ct)
 }
@@ -722,32 +803,20 @@ fn encrypt_aes_gcm(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>> {
     
     let mut sealing_key = aead::SealingKey::new(unbound_key, SingleNonceSequence(nonce_bytes));
     
+    // seal_in_place_append_tag encrypts the data in the buffer and appends the tag.
+    // According to ring docs, the buffer must have enough capacity for the tag.
+    // The function will extend the vector to append the tag.
     let mut in_out = plaintext.to_vec();
-    // The issue: seal_in_place_append_tag encrypts the ENTIRE buffer
-    // So if we extend with zeros, it encrypts those zeros too
-    // Solution: Don't extend the buffer. The function should handle tag space.
-    // But ring docs say we need to extend. Let's check: maybe it only encrypts
-    // up to (buffer_len - tag_len)? No, debug shows it encrypts everything.
+    // Reserve capacity for the tag (ring will extend the vector when appending)
+    let tag_len = sealing_key.algorithm().tag_len();
+    in_out.reserve(tag_len);
     
-    // Real solution: seal_in_place_append_tag encrypts the data in the buffer
-    // and appends the tag. It encrypts up to (buffer.len() - tag_len) bytes.
-    // So if we have 25 bytes and extend to 41, it should encrypt 25 and append tag.
-    // But debug shows it encrypts 41. This suggests the API works differently.
-    
-    // Let's try: don't extend, and see if the function reserves space automatically
-    // If not, we'll get an error and can handle it
+    // seal_in_place_append_tag encrypts the plaintext and appends the tag
+    // It requires the vector to have enough capacity, which we've reserved
     sealing_key.seal_in_place_append_tag(aead::Aad::empty(), &mut in_out)
-        .map_err(|_| {
-            // If it fails, we need to extend with tag space
-            // But we need to extend BEFORE calling, not in the error handler
-            BottleError::Encryption("Need to extend buffer first".to_string())
-        })?;
+        .map_err(|_| BottleError::Encryption("Encryption failed".to_string()))?;
     
-    // Actually, the above won't work. Let me fix it properly:
-    // According to ring docs, we MUST extend with tag_len zeros before calling
-    // But the function encrypts the entire buffer. So the solution is:
-    // Only extend with tag space, don't add extra data to encrypt
-    
+    // Prepend nonce to the result
     let mut result = nonce_bytes.to_vec();
     result.extend_from_slice(&in_out);
     Ok(result)
@@ -797,21 +866,16 @@ fn decrypt_aes_gcm(key: &[u8; 32], ciphertext: &[u8]) -> Result<Vec<u8>> {
     
     let mut opening_key = OpeningKey::new(unbound_key, SingleNonceSequence(nonce_bytes));
     
+    // The ciphertext format is: nonce (12 bytes) + encrypted_data + tag (16 bytes)
+    // open_in_place expects the ciphertext + tag (without the nonce)
     let mut in_out = ciphertext[12..].to_vec();
-    let tag_len = opening_key.algorithm().tag_len();
     
+    // open_in_place decrypts and verifies the tag, returning the plaintext
+    // It expects the tag to be at the end of the buffer
     let plaintext = opening_key.open_in_place(aead::Aad::empty(), &mut in_out)
         .map_err(|_| BottleError::Decryption("Decryption failed".to_string()))?;
     
-    // open_in_place returns a slice excluding the tag
-    // However, if encryption added zeros for tag space, those zeros are also decrypted
-    // Trim trailing zeros that match the tag length (they were padding added during encryption)
-    let mut result = plaintext.to_vec();
-    if result.len() >= tag_len && result[result.len() - tag_len..].iter().all(|&b| b == 0) {
-        result.truncate(result.len() - tag_len);
-    }
-    
-    Ok(result)
+    Ok(plaintext.to_vec())
 }
 
 /// RSA-OAEP encryption.
