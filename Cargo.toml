@@ -84,4 +84,16 @@ path = "tests/rsa_test.rs"
 name = "short_buffer"
 path = "tests/short_buffer_test.rs"
 
+[[test]]
+name = "error"
+path = "tests/error_test.rs"
+
+[[test]]
+name = "edge_cases"
+path = "tests/edge_cases_test.rs"
+
+[[test]]
+name = "keys"
+path = "tests/keys_test.rs"
+
 # No patches needed - ml-kem is pure Rust and works on all platforms

@@ -626,7 +626,13 @@ All operations return `Result<T, BottleError>` for explicit error handling.
 The library includes a comprehensive test suite that matches the gobottle test structure:
 
 ```bash
+# Run all tests
 cargo test
+
+# Run tests with specific features
+cargo test --features ml-kem
+cargo test --features post-quantum
+cargo test --features ml-kem,post-quantum
 ```
 
 ### Test Files
@@ -650,7 +656,56 @@ cargo test
   - Keychain usage
   - Group memberships
 
+- `tests/pqc_test.rs`: Post-quantum cryptography (24 tests)
+  - ML-KEM encryption/decryption
+  - ML-DSA signing/verification
+  - SLH-DSA signing/verification
+  - Hybrid encryption
+
+- `tests/pkix_test.rs`: PKIX/PKCS#8 serialization (9 tests)
+  - Key marshaling/unmarshaling
+  - DER and PEM encoding
+  - Multiple key types
+
+- `tests/rsa_test.rs`: RSA operations (11 tests)
+  - Key generation
+  - Encryption/decryption
+  - Signing/verification
+
+- `tests/short_buffer_test.rs`: Short buffer encryption (7 tests)
+  - RSA key wrapping
+  - Maximum message size handling
+
 All tests pass and demonstrate the library's functionality.
+
+### Code Coverage
+
+Code coverage is tracked using `cargo-tarpaulin`. To generate coverage reports:
+
+```bash
+# Install cargo-tarpaulin (if not already installed)
+cargo install cargo-tarpaulin
+
+# Generate coverage report
+cargo tarpaulin --out Html --output-dir coverage
+
+# Generate coverage with specific features
+cargo tarpaulin --features ml-kem --out Html --output-dir coverage
+cargo tarpaulin --features post-quantum --out Html --output-dir coverage
+cargo tarpaulin --features ml-kem,post-quantum --out Html --output-dir coverage
+
+# View HTML report
+open coverage/tarpaulin-report.html
+```
+
+Coverage reports are generated in multiple formats:
+- **HTML**: Interactive report (default: `coverage/tarpaulin-report.html`)
+- **XML**: For CI/CD integration (Cobertura format)
+- **Stdout**: Terminal output
+
+The coverage configuration is in `tarpaulin.toml`. Coverage reports exclude test files, examples, and benchmarks.
+
+**Note**: Coverage may vary depending on which features are enabled, as optional dependencies are only included when their features are active.
 
 ## Security Considerations
 
