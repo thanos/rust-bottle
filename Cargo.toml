@@ -96,4 +96,8 @@ path = "tests/edge_cases_test.rs"
 name = "keys"
 path = "tests/keys_test.rs"
 
+[[test]]
+name = "coverage"
+path = "tests/coverage_test.rs"
+
 # No patches needed - ml-kem is pure Rust and works on all platforms

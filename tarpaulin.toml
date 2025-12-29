@@ -1,0 +1,39 @@
+# Tarpaulin code coverage configuration
+[tool.tarpaulin]
+# Exclude test files from coverage
+exclude_files = [
+    "tests/*",
+    "*/tests/*",
+    "*/test_*.rs",
+    "*/benches/*",
+]
+
+# Exclude specific patterns
+exclude_globs = [
+    "target/**",
+    "**/target/**",
+    "patches/**",
+]
+
+# Coverage threshold (percentage)
+# Enforce minimum coverage - fail if below this threshold
+fail_under = 80
+
+# Output formats
+out = ["Html", "Xml", "Stdout"]
+
+# Include tests in coverage report
+follow_exec = true
+
+# Timeout for tests (in seconds)
+timeout = 300
+
+# Exclude lines that are only used in tests
+exclude_tests = true
+
+# Exclude lines that are only used in examples
+exclude_examples = true
+
+# Exclude lines that are only used in benchmarks
+exclude_benches = true
+
