@@ -248,6 +248,7 @@ impl SignerKey for EcdsaP256Key {
 /// let pub_key = key.public_key_bytes();
 /// let priv_key = key.private_key_bytes();
 /// ```
+#[derive(Clone)]
 pub struct Ed25519Key {
     signing_key: Ed25519SigningKey,
     verifying_key: Ed25519VerifyingKey,
