@@ -2895,16 +2895,13 @@ fn test_decrypt_aes_gcm_success() {
 // ============================================================================
 // Kyber1024 Module Coverage Tests (patches/pqcrypto-kyber-0.5.0/src/kyber1024.rs)
 // ============================================================================
-// NOTE: These tests are commented out because pqcrypto_kyber is not available as a dependency.
-// The kyber1024 module is in the patches directory and may not be directly accessible.
-// To enable these tests:
-// 1. Add pqcrypto-kyber as a dependency (or path dependency to patches/pqcrypto-kyber-0.5.0)
-// 2. Uncomment the tests below
+// NOTE: These tests require the "pqcrypto-kyber" feature to be enabled.
+// To run these tests: cargo test --features pqcrypto-kyber --test coverage
 //
 // Lines to cover: 120-125, 127, 129, 134-139, 141, 157-159, 161-166, 169, 172,
 //                 178-180, 182-186, 188, 191, 206-213, 216, 218, 224-228, 230
 
-/*
+#[cfg(feature = "pqcrypto-kyber")]
 #[test]
 fn test_kyber1024_keypair_portable() {
     // Test lines 120-125, 127, 129: keypair_portable function
@@ -2977,6 +2974,7 @@ fn test_kyber1024_decapsulate_portable() {
     assert_eq!(ss2.as_bytes().len(), kyber1024::shared_secret_bytes());
 }
 
+#[cfg(feature = "pqcrypto-kyber")]
 #[test]
 fn test_kyber1024_keypair_multiple_times() {
     // Test to ensure keypair_portable is exercised multiple times
@@ -2996,6 +2994,7 @@ fn test_kyber1024_keypair_multiple_times() {
     }
 }
 
+#[cfg(feature = "pqcrypto-kyber")]
 #[test]
 fn test_kyber1024_encapsulate_decapsulate_round_trip() {
     // Comprehensive test to exercise all portable functions
@@ -3023,6 +3022,7 @@ fn test_kyber1024_encapsulate_decapsulate_round_trip() {
     }
 }
 
+#[cfg(feature = "pqcrypto-kyber")]
 #[test]
 fn test_kyber1024_from_bytes_error_paths() {
     // Test error paths in from_bytes (part of the simple_struct macro)
@@ -3047,6 +3047,7 @@ fn test_kyber1024_from_bytes_error_paths() {
     assert!(result4.is_err());
 }
 
+#[cfg(feature = "pqcrypto-kyber")]
 #[test]
 fn test_kyber1024_from_bytes_success() {
     // Test successful from_bytes paths
@@ -3078,5 +3079,4 @@ fn test_kyber1024_from_bytes_success() {
     // But we can verify the size is correct
     assert_eq!(ss.as_bytes().len(), ss_expected.as_bytes().len());
 }
-*/
 
