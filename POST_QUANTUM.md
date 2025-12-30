@@ -401,9 +401,9 @@ ml-kem = ["pqcrypto-kyber"]
 
 ### macOS/ARM (AArch64)
 
-- **ML-DSA**: ✅ Works (uses clean dilithium2/3/5 implementations)
-- **SLH-DSA**: ✅ Works (uses clean sphincsshake256 implementations)
-- **ML-KEM**: ❌ Compilation fails due to `pqcrypto-kyber` v0.5 bug
+- **ML-DSA**: Works (uses clean dilithium2/3/5 implementations)
+- **SLH-DSA**: Works (uses clean sphincsshake256 implementations)
+- **ML-KEM**: Compilation fails due to `pqcrypto-kyber` v0.5 bug
 
 **Issue**: `pqcrypto-kyber` v0.5.0 has a bug where AVX2 FFI functions are referenced even on AArch64, causing compilation failures. The crate should automatically use the "clean" (generic/portable) implementation on AArch64, but the bug prevents this.
 
@@ -411,15 +411,15 @@ ml-kem = ["pqcrypto-kyber"]
 
 ### x86/x86_64
 
-- **ML-DSA**: ✅ Works
-- **SLH-DSA**: ✅ Works
-- **ML-KEM**: ✅ Works (uses AVX2-optimized implementation if available)
+- **ML-DSA**: Works
+- **SLH-DSA**: Works
+- **ML-KEM**: Works (uses AVX2-optimized implementation if available)
 
 ### Other Platforms
 
-- **ML-DSA**: ✅ Should work (uses clean implementations)
-- **SLH-DSA**: ✅ Should work (uses clean implementations)
-- **ML-KEM**: ⚠️ May have issues depending on platform
+- **ML-DSA**: Should work (uses clean implementations)
+- **SLH-DSA**: Should work (uses clean implementations)
+- **ML-KEM**: May have issues depending on platform
 
 ## Known Limitations
 
