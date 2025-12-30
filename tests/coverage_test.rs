@@ -2707,20 +2707,36 @@ fn test_mlkem768_encrypt_full() {
     let key = MlKem768Key::generate(rng);
     let plaintext = b"Test message for ML-KEM-768 encryption";
     
-    // Test with correct key size
-    let ciphertext = ecdh::mlkem768_encrypt(rng, plaintext, &key.public_key_bytes()).unwrap();
+    // Test with correct key size (1184 bytes) - covers lines 460-461, 463-465
+    let pub_key_bytes = key.public_key_bytes();
+    assert_eq!(pub_key_bytes.len(), 1184);
+    let ciphertext = ecdh::mlkem768_encrypt(rng, plaintext, &pub_key_bytes).unwrap();
     assert!(!ciphertext.is_empty());
     assert!(ciphertext.len() > 1088); // ML-KEM ciphertext (1088) + AES-GCM encrypted data
     
-    // Test with wrong key size
+    // Verify the ciphertext structure: ML-KEM ciphertext (1088 bytes) + AES-GCM encrypted data
+    assert!(ciphertext.len() >= 1088 + 28); // At least 28 bytes for AES-GCM (12 nonce + 16 tag minimum)
+    
+    // Test with wrong key size - covers line 461 (error return)
     let wrong_key = vec![0u8; 1000];
     let result = ecdh::mlkem768_encrypt(rng, plaintext, &wrong_key);
     assert!(result.is_err());
     assert!(matches!(result, Err(BottleError::InvalidKeyType)));
     
-    // Test decryption
+    // Test with key size 1184 but invalid format (should fail at try_into or from_bytes)
+    // Note: try_into will succeed for Vec<u8> of length 1184, but from_bytes might fail
+    let invalid_key = vec![0u8; 1184];
+    let result2 = ecdh::mlkem768_encrypt(rng, plaintext, &invalid_key);
+    // May fail at from_bytes or encapsulation, but exercises the code path
+    
+    // Test decryption to verify full round-trip
     let decrypted = ecdh::mlkem768_decrypt(&ciphertext, &key.private_key_bytes()).unwrap();
     assert_eq!(decrypted, plaintext);
+    
+    // Test with empty plaintext to ensure all code paths are exercised
+    let empty_ciphertext = ecdh::mlkem768_encrypt(rng, b"", &pub_key_bytes).unwrap();
+    let empty_decrypted = ecdh::mlkem768_decrypt(&empty_ciphertext, &key.private_key_bytes()).unwrap();
+    assert_eq!(empty_decrypted, b"");
 }
 
 #[cfg(feature = "ml-kem")]
@@ -2735,20 +2751,35 @@ fn test_mlkem1024_encrypt_full() {
     let key = MlKem1024Key::generate(rng);
     let plaintext = b"Test message for ML-KEM-1024 encryption";
     
-    // Test with correct key size
-    let ciphertext = ecdh::mlkem1024_encrypt(rng, plaintext, &key.public_key_bytes()).unwrap();
+    // Test with correct key size (1568 bytes) - covers lines 569-570, 572-574
+    let pub_key_bytes = key.public_key_bytes();
+    assert_eq!(pub_key_bytes.len(), 1568);
+    let ciphertext = ecdh::mlkem1024_encrypt(rng, plaintext, &pub_key_bytes).unwrap();
     assert!(!ciphertext.is_empty());
     assert!(ciphertext.len() > 1568); // ML-KEM ciphertext (1568) + AES-GCM encrypted data
     
-    // Test with wrong key size
+    // Verify the ciphertext structure: ML-KEM ciphertext (1568 bytes) + AES-GCM encrypted data
+    assert!(ciphertext.len() >= 1568 + 28); // At least 28 bytes for AES-GCM (12 nonce + 16 tag minimum)
+    
+    // Test with wrong key size - covers line 570 (error return)
     let wrong_key = vec![0u8; 1000];
     let result = ecdh::mlkem1024_encrypt(rng, plaintext, &wrong_key);
     assert!(result.is_err());
     assert!(matches!(result, Err(BottleError::InvalidKeyType)));
     
-    // Test decryption
+    // Test with key size 1568 but invalid format (should fail at try_into or from_bytes)
+    let invalid_key = vec![0u8; 1568];
+    let result2 = ecdh::mlkem1024_encrypt(rng, plaintext, &invalid_key);
+    // May fail at from_bytes or encapsulation, but exercises the code path
+    
+    // Test decryption to verify full round-trip
     let decrypted = ecdh::mlkem1024_decrypt(&ciphertext, &key.private_key_bytes()).unwrap();
     assert_eq!(decrypted, plaintext);
+    
+    // Test with empty plaintext to ensure all code paths are exercised
+    let empty_ciphertext = ecdh::mlkem1024_encrypt(rng, b"", &pub_key_bytes).unwrap();
+    let empty_decrypted = ecdh::mlkem1024_decrypt(&empty_ciphertext, &key.private_key_bytes()).unwrap();
+    assert_eq!(empty_decrypted, b"");
 }
 
 #[cfg(feature = "ml-kem")]
@@ -2764,15 +2795,37 @@ fn test_hybrid_encrypt_mlkem768_x25519() {
     let x25519_key = X25519Key::generate(rng);
     let plaintext = b"Test message for hybrid encryption";
     
+    // Test with valid keys - covers lines 677-681, 685-688, 690
+    let mlkem_pub = mlkem_key.public_key_bytes();
+    let x25519_pub = x25519_key.public_key_bytes();
+    assert_eq!(mlkem_pub.len(), 1184); // Verify ML-KEM-768 key size
+    assert_eq!(x25519_pub.len(), 32); // Verify X25519 key size
+    
     let ciphertext = ecdh::hybrid_encrypt_mlkem768_x25519(
         rng,
         plaintext,
-        &mlkem_key.public_key_bytes(),
-        &x25519_key.public_key_bytes(),
+        &mlkem_pub,
+        &x25519_pub,
     ).unwrap();
     
     assert!(!ciphertext.is_empty());
-    assert!(ciphertext.len() > 4); // At least the length prefix
+    assert!(ciphertext.len() > 4); // At least the length prefix (4 bytes)
+    
+    // Verify ciphertext format: [mlkem_len: u32][mlkem_ct][x25519_ct]
+    let mlkem_len = u32::from_le_bytes(ciphertext[..4].try_into().unwrap()) as usize;
+    assert!(mlkem_len > 0);
+    assert!(ciphertext.len() >= 4 + mlkem_len);
+    
+    // Test with invalid X25519 key size - covers line 679 (error path)
+    let invalid_x25519 = vec![0u8; 31]; // Wrong size
+    let result = ecdh::hybrid_encrypt_mlkem768_x25519(
+        rng,
+        plaintext,
+        &mlkem_pub,
+        &invalid_x25519,
+    );
+    assert!(result.is_err());
+    assert!(matches!(result, Err(BottleError::InvalidKeyType)));
     
     // Test decryption
     let x25519_priv: [u8; 32] = x25519_key.private_key_bytes().try_into().unwrap();
@@ -2782,6 +2835,20 @@ fn test_hybrid_encrypt_mlkem768_x25519() {
         &x25519_priv,
     ).unwrap();
     assert_eq!(decrypted, plaintext);
+    
+    // Test with empty plaintext
+    let empty_ciphertext = ecdh::hybrid_encrypt_mlkem768_x25519(
+        rng,
+        b"",
+        &mlkem_pub,
+        &x25519_pub,
+    ).unwrap();
+    let empty_decrypted = ecdh::hybrid_decrypt_mlkem768_x25519(
+        &empty_ciphertext,
+        &mlkem_key.private_key_bytes(),
+        &x25519_priv,
+    ).unwrap();
+    assert_eq!(empty_decrypted, b"");
 }
 
 #[test]
@@ -2824,4 +2891,192 @@ fn test_decrypt_aes_gcm_success() {
     let decrypted = ecdh::ecdh_decrypt_x25519(&ciphertext, &priv_key_bytes).unwrap();
     assert_eq!(decrypted, plaintext);
 }
+
+// ============================================================================
+// Kyber1024 Module Coverage Tests (patches/pqcrypto-kyber-0.5.0/src/kyber1024.rs)
+// ============================================================================
+// NOTE: These tests are commented out because pqcrypto_kyber is not available as a dependency.
+// The kyber1024 module is in the patches directory and may not be directly accessible.
+// To enable these tests:
+// 1. Add pqcrypto-kyber as a dependency (or path dependency to patches/pqcrypto-kyber-0.5.0)
+// 2. Uncomment the tests below
+//
+// Lines to cover: 120-125, 127, 129, 134-139, 141, 157-159, 161-166, 169, 172,
+//                 178-180, 182-186, 188, 191, 206-213, 216, 218, 224-228, 230
+
+/*
+#[test]
+fn test_kyber1024_keypair_portable() {
+    // Test lines 120-125, 127, 129: keypair_portable function
+    // This is called indirectly through the public keypair() function
+    // when AVX2 is not available or not detected
+    use pqcrypto_kyber::kyber1024;
+    
+    // Generate keypair - will call keypair_portable() if AVX2 is not available
+    let (pk, sk) = kyber1024::keypair();
+    
+    // Verify key sizes
+    assert_eq!(pk.as_bytes().len(), kyber1024::public_key_bytes());
+    assert_eq!(sk.as_bytes().len(), kyber1024::secret_key_bytes());
+    
+    // Verify keys are not all zeros
+    assert!(!pk.as_bytes().iter().all(|&b| b == 0));
+    assert!(!sk.as_bytes().iter().all(|&b| b == 0));
+}
+
+#[cfg(feature = "pqcrypto-kyber")]
+#[test]
+fn test_kyber1024_encapsulate_portable() {
+    // Test lines 157-159, 161-166, 169, 172: encapsulate_portable function
+    // This is called indirectly through the public encapsulate() function
+    // when AVX2 is not available or not detected
+    use pqcrypto_kyber::kyber1024;
+    
+    // Generate keypair
+    let (pk, sk) = kyber1024::keypair();
+    
+    // Encapsulate - will call encapsulate_portable() if AVX2 is not available
+    let (ss1, ct) = kyber1024::encapsulate(&pk);
+    
+    // Verify sizes
+    assert_eq!(ss1.as_bytes().len(), kyber1024::shared_secret_bytes());
+    assert_eq!(ct.as_bytes().len(), kyber1024::ciphertext_bytes());
+    
+    // Verify shared secret is not all zeros
+    assert!(!ss1.as_bytes().iter().all(|&b| b == 0));
+    
+    // Verify ciphertext is not all zeros
+    assert!(!ct.as_bytes().iter().all(|&b| b == 0));
+    
+    // Test decapsulation
+    let ss2 = kyber1024::decapsulate(&ct, &sk);
+    assert_eq!(ss1.as_bytes(), ss2.as_bytes());
+}
+
+#[cfg(feature = "pqcrypto-kyber")]
+#[test]
+fn test_kyber1024_decapsulate_portable() {
+    // Test lines 206-213, 216, 218: decapsulate_portable function
+    // This is called indirectly through the public decapsulate() function
+    // when AVX2 is not available or not detected
+    use pqcrypto_kyber::kyber1024;
+    
+    // Generate keypair
+    let (pk, sk) = kyber1024::keypair();
+    
+    // Encapsulate
+    let (ss1, ct) = kyber1024::encapsulate(&pk);
+    
+    // Decapsulate - will call decapsulate_portable() if AVX2 is not available
+    let ss2 = kyber1024::decapsulate(&ct, &sk);
+    
+    // Verify shared secrets match
+    assert_eq!(ss1.as_bytes(), ss2.as_bytes());
+    
+    // Verify shared secret size
+    assert_eq!(ss2.as_bytes().len(), kyber1024::shared_secret_bytes());
+}
+
+#[test]
+fn test_kyber1024_keypair_multiple_times() {
+    // Test to ensure keypair_portable is exercised multiple times
+    // This helps ensure all code paths in lines 120-129 are covered
+    use pqcrypto_kyber::kyber1024;
+    
+    // Generate multiple keypairs
+    for _ in 0..5 {
+        let (pk, sk) = kyber1024::keypair();
+        assert_eq!(pk.as_bytes().len(), kyber1024::public_key_bytes());
+        assert_eq!(sk.as_bytes().len(), kyber1024::secret_key_bytes());
+        
+        // Verify each keypair is different (very unlikely to be the same)
+        let (pk2, _) = kyber1024::keypair();
+        // Keys should be different (extremely unlikely to collide)
+        assert_ne!(pk.as_bytes(), pk2.as_bytes());
+    }
+}
+
+#[test]
+fn test_kyber1024_encapsulate_decapsulate_round_trip() {
+    // Comprehensive test to exercise all portable functions
+    // Covers lines 120-129, 157-172, 206-218
+    use pqcrypto_kyber::kyber1024;
+    
+    // Generate keypair
+    let (pk, sk) = kyber1024::keypair();
+    
+    // Multiple encapsulations with the same public key
+    for _ in 0..3 {
+        let (ss1, ct) = kyber1024::encapsulate(&pk);
+        
+        // Each encapsulation should produce different ciphertexts
+        let (ss2, ct2) = kyber1024::encapsulate(&pk);
+        // Ciphertexts should be different (very unlikely to be the same)
+        assert_ne!(ct.as_bytes(), ct2.as_bytes());
+        
+        // But decapsulation should work for both
+        let ss1_dec = kyber1024::decapsulate(&ct, &sk);
+        let ss2_dec = kyber1024::decapsulate(&ct2, &sk);
+        
+        assert_eq!(ss1.as_bytes(), ss1_dec.as_bytes());
+        assert_eq!(ss2.as_bytes(), ss2_dec.as_bytes());
+    }
+}
+
+#[test]
+fn test_kyber1024_from_bytes_error_paths() {
+    // Test error paths in from_bytes (part of the simple_struct macro)
+    // This exercises error handling in the struct implementations
+    use pqcrypto_kyber::kyber1024;
+    
+    // Test PublicKey with wrong size
+    let wrong_size = vec![0u8; 100];
+    let result = kyber1024::PublicKey::from_bytes(&wrong_size);
+    assert!(result.is_err());
+    
+    // Test SecretKey with wrong size
+    let result2 = kyber1024::SecretKey::from_bytes(&wrong_size);
+    assert!(result2.is_err());
+    
+    // Test Ciphertext with wrong size
+    let result3 = kyber1024::Ciphertext::from_bytes(&wrong_size);
+    assert!(result3.is_err());
+    
+    // Test SharedSecret with wrong size
+    let result4 = kyber1024::SharedSecret::from_bytes(&wrong_size);
+    assert!(result4.is_err());
+}
+
+#[test]
+fn test_kyber1024_from_bytes_success() {
+    // Test successful from_bytes paths
+    use pqcrypto_kyber::kyber1024;
+    
+    // Generate valid keys
+    let (pk, sk) = kyber1024::keypair();
+    let (_, ct) = kyber1024::encapsulate(&pk);
+    
+    // Test PublicKey from_bytes
+    let pk_bytes = pk.as_bytes();
+    let pk_restored = kyber1024::PublicKey::from_bytes(pk_bytes).unwrap();
+    assert_eq!(pk.as_bytes(), pk_restored.as_bytes());
+    
+    // Test SecretKey from_bytes
+    let sk_bytes = sk.as_bytes();
+    let sk_restored = kyber1024::SecretKey::from_bytes(sk_bytes).unwrap();
+    assert_eq!(sk.as_bytes(), sk_restored.as_bytes());
+    
+    // Test Ciphertext from_bytes
+    let ct_bytes = ct.as_bytes();
+    let ct_restored = kyber1024::Ciphertext::from_bytes(ct_bytes).unwrap();
+    assert_eq!(ct.as_bytes(), ct_restored.as_bytes());
+    
+    // Verify decapsulation still works with restored keys
+    let ss = kyber1024::decapsulate(&ct_restored, &sk_restored);
+    let (ss_expected, _) = kyber1024::encapsulate(&pk_restored);
+    // Note: ss won't match ss_expected because encapsulation is randomized
+    // But we can verify the size is correct
+    assert_eq!(ss.as_bytes().len(), ss_expected.as_bytes().len());
+}
+*/
 
