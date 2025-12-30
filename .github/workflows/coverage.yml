@@ -1,0 +1,69 @@
+name: Code Coverage
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        feature-set:
+          - ""
+          - "--features ml-kem"
+          - "--features post-quantum"
+          - "--features ml-kem,post-quantum"
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked
+      
+      - name: Run tests with coverage
+        run: |
+          if [ -z "${{ matrix.feature-set }}" ]; then
+            cargo tarpaulin \
+              --out Xml \
+              --out Html \
+              --output-dir coverage \
+              --timeout 300 \
+              --fail-under 80
+          else
+            cargo tarpaulin \
+              --features ${{ matrix.feature-set }} \
+              --out Xml \
+              --out Html \
+              --output-dir coverage \
+              --timeout 300 \
+              --fail-under 80
+          fi
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/cobertura.xml
+          flags: ${{ matrix.feature-set || 'default' }}
+          name: codecov-${{ matrix.feature-set || 'default' }}
+          fail_ci_if_error: false
+      
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report-${{ matrix.feature-set || 'default' }}
+          path: coverage/
+          retention-days: 30
+
