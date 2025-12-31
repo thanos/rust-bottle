@@ -66,7 +66,7 @@ fn test_alice_bob_with_idcards() {
 fn test_alice_bob_with_keychain() {
     // Create keychains
     let mut alice_keychain = Keychain::new();
-    let mut bob_keychain = Keychain::new();
+    let _bob_keychain = Keychain::new();
     
     let rng = &mut OsRng;
     let alice_key = Ed25519Key::generate(rng);

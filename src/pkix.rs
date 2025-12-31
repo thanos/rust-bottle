@@ -601,10 +601,10 @@ fn marshal_rsa_pkcs8(_private_key_bytes: &[u8]) -> Result<Vec<u8>> {
 
 #[cfg(feature = "ml-kem")]
 fn marshal_mlkem_pkix(public_key_bytes: &[u8], key_type: KeyType) -> Result<Vec<u8>> {
-    use der::asn1::OctetString;
+    use der::asn1::BitString;
     
-    let key_octets = OctetString::new(public_key_bytes).map_err(|e| {
-        BottleError::Serialization(format!("Failed to create ML-KEM octet string: {}", e))
+    let key_bits = BitString::from_bytes(public_key_bytes).map_err(|e| {
+        BottleError::Serialization(format!("Failed to create ML-KEM bit string: {}", e))
     })?;
     
     use der::asn1::AnyRef;
@@ -615,7 +615,7 @@ fn marshal_mlkem_pkix(public_key_bytes: &[u8], key_type: KeyType) -> Result<Vec<
     
     let spki = SubjectPublicKeyInfo {
         algorithm,
-        subject_public_key: key_octets,
+        subject_public_key: key_bits,
     };
     
     spki.to_der().map_err(|e| {
@@ -627,7 +627,7 @@ fn marshal_mlkem_pkix(public_key_bytes: &[u8], key_type: KeyType) -> Result<Vec<
 fn marshal_mlkem_pkcs8(private_key_bytes: &[u8], key_type: KeyType) -> Result<Vec<u8>> {
     use der::asn1::OctetString;
     
-    let key_octets = OctetString::new(private_key_bytes).map_err(|e| {
+    let _key_octets = OctetString::new(private_key_bytes).map_err(|e| {
         BottleError::Serialization(format!("Failed to create ML-KEM octet string: {}", e))
     })?;
     
@@ -646,10 +646,10 @@ fn marshal_mlkem_pkcs8(private_key_bytes: &[u8], key_type: KeyType) -> Result<Ve
 
 #[cfg(feature = "post-quantum")]
 fn marshal_mldsa_pkix(public_key_bytes: &[u8], key_type: KeyType) -> Result<Vec<u8>> {
-    use der::asn1::OctetString;
+    use der::asn1::BitString;
     
-    let key_octets = OctetString::new(public_key_bytes).map_err(|e| {
-        BottleError::Serialization(format!("Failed to create ML-DSA octet string: {}", e))
+    let key_bits = BitString::from_bytes(public_key_bytes).map_err(|e| {
+        BottleError::Serialization(format!("Failed to create ML-DSA bit string: {}", e))
     })?;
     
     use der::asn1::AnyRef;
@@ -660,7 +660,7 @@ fn marshal_mldsa_pkix(public_key_bytes: &[u8], key_type: KeyType) -> Result<Vec<
     
     let spki = SubjectPublicKeyInfo {
         algorithm,
-        subject_public_key: key_octets,
+        subject_public_key: key_bits,
     };
     
     spki.to_der().map_err(|e| {
@@ -672,7 +672,7 @@ fn marshal_mldsa_pkix(public_key_bytes: &[u8], key_type: KeyType) -> Result<Vec<
 fn marshal_mldsa_pkcs8(private_key_bytes: &[u8], key_type: KeyType) -> Result<Vec<u8>> {
     use der::asn1::OctetString;
     
-    let key_octets = OctetString::new(private_key_bytes).map_err(|e| {
+    let _key_octets = OctetString::new(private_key_bytes).map_err(|e| {
         BottleError::Serialization(format!("Failed to create ML-DSA octet string: {}", e))
     })?;
     
@@ -691,10 +691,10 @@ fn marshal_mldsa_pkcs8(private_key_bytes: &[u8], key_type: KeyType) -> Result<Ve
 
 #[cfg(feature = "post-quantum")]
 fn marshal_slhdsa_pkix(public_key_bytes: &[u8], key_type: KeyType) -> Result<Vec<u8>> {
-    use der::asn1::OctetString;
+    use der::asn1::BitString;
     
-    let key_octets = OctetString::new(public_key_bytes).map_err(|e| {
-        BottleError::Serialization(format!("Failed to create SLH-DSA octet string: {}", e))
+    let key_bits = BitString::from_bytes(public_key_bytes).map_err(|e| {
+        BottleError::Serialization(format!("Failed to create SLH-DSA bit string: {}", e))
     })?;
     
     use der::asn1::AnyRef;
@@ -705,7 +705,7 @@ fn marshal_slhdsa_pkix(public_key_bytes: &[u8], key_type: KeyType) -> Result<Vec
     
     let spki = SubjectPublicKeyInfo {
         algorithm,
-        subject_public_key: key_octets,
+        subject_public_key: key_bits,
     };
     
     spki.to_der().map_err(|e| {
@@ -717,7 +717,7 @@ fn marshal_slhdsa_pkix(public_key_bytes: &[u8], key_type: KeyType) -> Result<Vec
 fn marshal_slhdsa_pkcs8(private_key_bytes: &[u8], key_type: KeyType) -> Result<Vec<u8>> {
     use der::asn1::OctetString;
     
-    let key_octets = OctetString::new(private_key_bytes).map_err(|e| {
+    let _key_octets = OctetString::new(private_key_bytes).map_err(|e| {
         BottleError::Serialization(format!("Failed to create SLH-DSA octet string: {}", e))
     })?;
     

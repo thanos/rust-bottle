@@ -145,7 +145,7 @@ fn test_idcard_multiple_keys() {
 
 #[test]
 fn test_idcard_expiration() {
-    use std::time::{Duration, SystemTime};
+    use std::time::Duration;
     let rng = &mut OsRng;
     let key = Ed25519Key::generate(rng);
     let pub_key = key.public_key_bytes();

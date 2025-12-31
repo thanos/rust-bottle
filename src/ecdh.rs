@@ -59,8 +59,8 @@ pub fn ecdh_encrypt_p256<R: RngCore + CryptoRng>(
     // For p256 0.13, the shared secret is a SharedSecret type
     // Extract shared secret bytes - raw_secret_bytes() returns a GenericArray
     let shared_bytes = shared_secret.raw_secret_bytes();
-    // Convert to slice for key derivation
-    let key = derive_key(shared_bytes.as_slice());
+    // Convert to slice for key derivation (use as_ref() instead of deprecated as_slice())
+    let key = derive_key(shared_bytes.as_ref());
     
     // Encrypt using AES-GCM (simplified - in production use proper AEAD)
     let encrypted = encrypt_aes_gcm(&key, plaintext)?;
@@ -129,8 +129,8 @@ pub fn ecdh_decrypt_p256(
     let point = ephemeral_pub.as_affine();
     // Perform ECDH: shared_secret = private_scalar * public_point
     let shared_point = (*point * scalar.as_ref()).to_encoded_point(false);
-    // Use x-coordinate as shared secret (standard ECDH)
-    let shared_bytes = shared_point.x().unwrap().as_slice();
+    // Use x-coordinate as shared secret (standard ECDH) (use as_ref() instead of deprecated as_slice())
+    let shared_bytes = shared_point.x().unwrap().as_ref();
     let key = derive_key(shared_bytes);
     
     // Decrypt
@@ -389,14 +389,14 @@ pub fn ecdh_encrypt<R: RngCore + CryptoRng>(
 pub fn ecdh_decrypt(ciphertext: &[u8], private_key: &[u8]) -> Result<Vec<u8>> {
     #[cfg(feature = "ml-kem")]
     {
-        // Try ML-KEM-768 (2400 bytes secret key)
+        // Try ML-KEM-768 (2400 bytes decapsulation key, or 3584 bytes full private key)
         if private_key.len() == 2400 {
             if let Ok(result) = mlkem768_decrypt(ciphertext, private_key) {
                 return Ok(result);
             }
         }
         
-        // Try ML-KEM-1024 (3168 bytes secret key)
+        // Try ML-KEM-1024 (3168 bytes decapsulation key, or 4736 bytes full private key)
         if private_key.len() == 3168 {
             if let Ok(result) = mlkem1024_decrypt(ciphertext, private_key) {
                 return Ok(result);
@@ -513,10 +513,16 @@ pub fn mlkem768_decrypt(
     secret_key: &[u8],
 ) -> Result<Vec<u8>> {
     // Parse secret key (decapsulation key)
-    if secret_key.len() != 2400 {
+    // Accept either 2400 bytes (decapsulation key only) or 3584 bytes (full private key: decaps + encaps)
+    let dk_bytes = if secret_key.len() == 2400 {
+        secret_key
+    } else if secret_key.len() == 3584 {
+        // Extract decapsulation key from full private key (first 2400 bytes)
+        &secret_key[..2400]
+    } else {
         return Err(BottleError::InvalidKeyType);
-    }
-    let sec_key_array: [u8; 2400] = secret_key.try_into()
+    };
+    let sec_key_array: [u8; 2400] = dk_bytes.try_into()
         .map_err(|_| BottleError::InvalidKeyType)?;
     let dk = <Kem<MlKem768Params> as KemCore>::DecapsulationKey::from_bytes((&sec_key_array).into());
     
@@ -532,7 +538,8 @@ pub fn mlkem768_decrypt(
         .map_err(|_| BottleError::InvalidFormat)?;
     // Ciphertext type: use Array with size constant from hybrid_array::sizes
     // ML-KEM-768 ciphertext is 1088 bytes
-    let mlkem_ct = Array::<u8, U1088>::clone_from_slice(&ct_array);
+    // Array implements From<[T; N]>, so we pass the array by value
+    let mlkem_ct: Array<u8, U1088> = ct_array.into();
     let aes_ct = &ciphertext[CT_SIZE..];
     
     // Decapsulate to get shared secret
@@ -619,10 +626,16 @@ pub fn mlkem1024_decrypt(
     secret_key: &[u8],
 ) -> Result<Vec<u8>> {
     // Parse secret key (decapsulation key)
-    if secret_key.len() != 3168 {
+    // Accept either 3168 bytes (decapsulation key only) or 4736 bytes (full private key: decaps + encaps)
+    let dk_bytes = if secret_key.len() == 3168 {
+        secret_key
+    } else if secret_key.len() == 4736 {
+        // Extract decapsulation key from full private key (first 3168 bytes)
+        &secret_key[..3168]
+    } else {
         return Err(BottleError::InvalidKeyType);
-    }
-    let sec_key_array: [u8; 3168] = secret_key.try_into()
+    };
+    let sec_key_array: [u8; 3168] = dk_bytes.try_into()
         .map_err(|_| BottleError::InvalidKeyType)?;
     let dk = <Kem<MlKem1024Params> as KemCore>::DecapsulationKey::from_bytes((&sec_key_array).into());
     
@@ -636,7 +649,8 @@ pub fn mlkem1024_decrypt(
         .map_err(|_| BottleError::InvalidFormat)?;
     // Ciphertext type: use Array with size constant from hybrid_array::sizes
     // ML-KEM-1024 ciphertext is 1568 bytes
-    let mlkem_ct = Array::<u8, U1568>::clone_from_slice(&ct_array);
+    // Array implements From<[T; N]>, so we pass the array by value
+    let mlkem_ct: Array<u8, U1568> = ct_array.into();
     let aes_ct = &ciphertext[CT_SIZE..];
     
     // Decapsulate to get shared secret

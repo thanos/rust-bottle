@@ -223,7 +223,7 @@ fn test_decrypt_short_buffer_invalid_ciphertext() {
 
 #[test]
 fn test_keychain_key_not_found() {
-    let mut keychain = Keychain::new();
+    let keychain = Keychain::new();
     let key = Ed25519Key::generate(&mut OsRng);
     let pub_key = key.public_key_bytes();
     
@@ -301,12 +301,11 @@ fn test_membership_verify_failure() {
 
 #[test]
 fn test_bottle_no_recipient() {
-    let rng = &mut OsRng;
-    let mut bottle = Bottle::new(b"test".to_vec());
+    let bottle = Bottle::new(b"test".to_vec());
     
     // Try to open bottle with no encryption layers
     let opener = Opener::new();
-    let result = opener.open(&bottle, None);
+    let _result = opener.open(&bottle, None);
     // This might succeed if bottle has no encryption, or fail with NoAppropriateKey
     // The exact behavior depends on implementation
 }

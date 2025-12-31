@@ -1,7 +1,5 @@
 use rust_bottle::keys::RsaKey;
-use rust_bottle::utils::{encrypt_short_buffer, decrypt_short_buffer};
 use rust_bottle::ecdh::rsa_encrypt;
-use rust_bottle::pkix;
 use rand::rngs::OsRng;
 
 #[test]

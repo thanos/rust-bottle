@@ -72,8 +72,8 @@ fn test_bottle_layered_encryption() {
     let message = b"Multi-layer encrypted";
     let mut bottle = Bottle::new(message.to_vec());
     
-    let (pub1, priv1) = generate_test_keypair();
-    let (pub2, priv2) = generate_test_keypair();
+    let (pub1, _priv1) = generate_test_keypair();
+    let (pub2, _priv2) = generate_test_keypair();
     
     let rng = &mut OsRng;
     // Encrypt with key1 first (inner layer)

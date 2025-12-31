@@ -92,7 +92,7 @@ fn test_parse_pkcs8_private_key_pem_invalid() {
     let key = Ed25519Key::generate(rng);
     
     // First create valid PKCS#8
-    let pkcs8_der = pkix::marshal_pkcs8_private_key(
+    let _pkcs8_der = pkix::marshal_pkcs8_private_key(
         &key.private_key_bytes(),
         pkix::KeyType::Ed25519
     ).unwrap();
@@ -306,7 +306,10 @@ fn test_mlkem768_from_private_key_bytes_invalid_size() {
     assert!(MlKem768Key::from_private_key_bytes(&[]).is_err());
     assert!(MlKem768Key::from_private_key_bytes(&[0u8; 100]).is_err());
     assert!(MlKem768Key::from_private_key_bytes(&[0u8; 1184]).is_err());
+    assert!(MlKem768Key::from_private_key_bytes(&[0u8; 2400]).is_err()); // Old format (decaps only)
     assert!(MlKem768Key::from_private_key_bytes(&[0u8; 2401]).is_err());
+    assert!(MlKem768Key::from_private_key_bytes(&[0u8; 3583]).is_err());
+    assert!(MlKem768Key::from_private_key_bytes(&[0u8; 3585]).is_err());
 }
 
 #[cfg(feature = "ml-kem")]
@@ -316,7 +319,10 @@ fn test_mlkem1024_from_private_key_bytes_invalid_size() {
     assert!(MlKem1024Key::from_private_key_bytes(&[]).is_err());
     assert!(MlKem1024Key::from_private_key_bytes(&[0u8; 100]).is_err());
     assert!(MlKem1024Key::from_private_key_bytes(&[0u8; 1568]).is_err());
+    assert!(MlKem1024Key::from_private_key_bytes(&[0u8; 3168]).is_err()); // Old format (decaps only)
     assert!(MlKem1024Key::from_private_key_bytes(&[0u8; 3169]).is_err());
+    assert!(MlKem1024Key::from_private_key_bytes(&[0u8; 4735]).is_err());
+    assert!(MlKem1024Key::from_private_key_bytes(&[0u8; 4737]).is_err());
 }
 
 #[cfg(feature = "ml-kem")]
@@ -470,7 +476,9 @@ fn test_marshal_slhdsa128s_pkix_roundtrip() {
     let rng = &mut OsRng;
     let key = SlhDsa128sKey::generate(rng);
     
-    let pkix = pkix::marshal_pkix_public_key(&key.public_key_bytes()).unwrap();
+    // Use marshal_pkix_public_key_with_type to explicitly specify SLH-DSA-128s
+    // because auto-detection defaults 32-byte keys to Ed25519
+    let pkix = pkix::marshal_pkix_public_key_with_type(&key.public_key_bytes(), pkix::KeyType::SlhDsa128s).unwrap();
     let parsed = pkix::parse_pkix_public_key(&pkix).unwrap();
     assert_eq!(parsed, key.public_key_bytes());
 }
@@ -495,7 +503,8 @@ fn test_marshal_slhdsa192s_pkix_roundtrip() {
     let rng = &mut OsRng;
     let key = SlhDsa192sKey::generate(rng);
     
-    let pkix = pkix::marshal_pkix_public_key(&key.public_key_bytes()).unwrap();
+    // Use marshal_pkix_public_key_with_type to explicitly specify SLH-DSA-192s
+    let pkix = pkix::marshal_pkix_public_key_with_type(&key.public_key_bytes(), pkix::KeyType::SlhDsa192s).unwrap();
     let parsed = pkix::parse_pkix_public_key(&pkix).unwrap();
     assert_eq!(parsed, key.public_key_bytes());
 }
@@ -520,7 +529,8 @@ fn test_marshal_slhdsa256s_pkix_roundtrip() {
     let rng = &mut OsRng;
     let key = SlhDsa256sKey::generate(rng);
     
-    let pkix = pkix::marshal_pkix_public_key(&key.public_key_bytes()).unwrap();
+    // Use marshal_pkix_public_key_with_type to explicitly specify SLH-DSA-256s
+    let pkix = pkix::marshal_pkix_public_key_with_type(&key.public_key_bytes(), pkix::KeyType::SlhDsa256s).unwrap();
     let parsed = pkix::parse_pkix_public_key(&pkix).unwrap();
     assert_eq!(parsed, key.public_key_bytes());
 }
@@ -548,7 +558,6 @@ fn test_bottle_from_bytes_invalid_bincode() {
     // Invalid bincode data - use data that's definitely not valid bincode
     // Bincode format requires specific structure, so random data should fail
     // But to be safe, use truncated valid data
-    let rng = &mut OsRng;
     let bottle = Bottle::new(b"test".to_vec());
     let valid_bytes = bottle.to_bytes().unwrap();
     
@@ -567,8 +576,7 @@ fn test_bottle_from_bytes_invalid_bincode() {
 #[test]
 fn test_bottle_from_bytes_corrupted() {
     // Create valid bottle first
-    let rng = &mut OsRng;
-    let mut bottle = Bottle::new(b"test".to_vec());
+    let bottle = Bottle::new(b"test".to_vec());
     let valid_bytes = bottle.to_bytes().unwrap();
     
     // Corrupt the data at multiple points to ensure failure
@@ -608,7 +616,7 @@ fn test_bottle_sign_invalid_signer() {
     
     // Sign with wrong key type (X25519 can't sign)
     let x25519_key = X25519Key::generate(rng);
-    let pub_key = x25519_key.public_key_bytes();
+    let _pub_key = x25519_key.public_key_bytes();
     
     // This should fail because X25519 doesn't implement Sign
     // We need to use a signer that implements Sign trait
@@ -656,7 +664,7 @@ fn test_idcard_from_bytes_invalid() {
 
 #[test]
 fn test_idcard_test_key_purpose_expired_key() {
-    use std::time::{Duration, SystemTime};
+    use std::time::Duration;
     let rng = &mut OsRng;
     let key = Ed25519Key::generate(rng);
     let pub_key = key.public_key_bytes();
@@ -762,7 +770,7 @@ fn test_keychain_get_signer_empty() {
 
 #[test]
 fn test_keychain_sign_key_not_found() {
-    let mut keychain = Keychain::new();
+    let keychain = Keychain::new();
     let key = Ed25519Key::generate(&mut OsRng);
     let pub_key = key.public_key_bytes();
     
@@ -861,7 +869,6 @@ fn test_detect_key_type_from_public_key_invalid_sec1() {
 #[test]
 fn test_marshal_ecdsa_p384_pkix_unsupported() {
     // P-384 is not fully implemented in marshal_ecdsa_pkix
-    let rng = &mut OsRng;
     // We can't easily generate P-384 keys without the key type, but we can test error path
     // For now, test that unsupported ECDSA curves return error
     let invalid_key = vec![0u8; 97]; // P-384 size
@@ -1213,7 +1220,6 @@ fn test_decrypt_short_buffer_invalid_ciphertext() {
 #[test]
 fn test_decrypt_short_buffer_wrong_key() {
     use rust_bottle::utils;
-    use rust_bottle::ecdh;
     
     let rng = &mut OsRng;
     let message = b"test";
@@ -1416,20 +1422,22 @@ fn test_hybrid_decrypt_mlkem768_x25519_invalid_format() {
     
     // Too short (less than 4 bytes for length)
     let too_short = vec![0u8; 3];
+    let x25519_priv = x25519_key.private_key_bytes();
+    let x25519_priv_array: [u8; 32] = x25519_priv.try_into().unwrap();
     let result = hybrid_decrypt_mlkem768_x25519(
         &too_short,
         &mlkem_key.private_key_bytes(),
-        &x25519_key.private_key_bytes()
+        &x25519_priv_array
     );
     assert!(result.is_err());
     assert!(matches!(result, Err(BottleError::InvalidFormat)));
     
     // Invalid length (length field says more data than available)
-    let mut invalid = vec![0xFF, 0xFF, 0xFF, 0xFF]; // Length = u32::MAX
+    let invalid = vec![0xFF, 0xFF, 0xFF, 0xFF]; // Length = u32::MAX
     let result2 = hybrid_decrypt_mlkem768_x25519(
         &invalid,
         &mlkem_key.private_key_bytes(),
-        &x25519_key.private_key_bytes()
+        &x25519_priv_array
     );
     assert!(result2.is_err());
     assert!(matches!(result2, Err(BottleError::InvalidFormat)));
@@ -1893,13 +1901,13 @@ fn test_marshal_pkix_public_key_with_type_ecdsa() {
     assert!(result.is_ok());
     
     // Test P-384 - create fake key with right size and format
-    let mut fake_p384 = vec![0x04u8; 97]; // 97 bytes, 0x04 prefix
+    let fake_p384 = vec![0x04u8; 97]; // 97 bytes, 0x04 prefix
     let result2 = pkix::marshal_pkix_public_key_with_type(&fake_p384, pkix::KeyType::EcdsaP384);
     // May fail due to invalid key format, but exercises the code path
     let _ = result2;
     
     // Test P-521 - create fake key with right size and format
-    let mut fake_p521 = vec![0x04u8; 133]; // 133 bytes, 0x04 prefix
+    let fake_p521 = vec![0x04u8; 133]; // 133 bytes, 0x04 prefix
     let result3 = pkix::marshal_pkix_public_key_with_type(&fake_p521, pkix::KeyType::EcdsaP521);
     // May fail due to invalid key format, but exercises the code path
     let _ = result3;
@@ -2051,7 +2059,6 @@ fn test_marshal_ecdsa_pkix_unsupported() {
 #[test]
 fn test_marshal_ed25519_pkix_error_cases() {
     // Test lines 495, 500-501, 504, 507-510: marshal_ed25519_pkix error paths
-    let rng = &mut OsRng;
     
     // Test with wrong key length
     let wrong_length = vec![0u8; 31]; // Should be 32 bytes
@@ -2067,7 +2074,6 @@ fn test_marshal_ed25519_pkix_error_cases() {
 #[test]
 fn test_marshal_ed25519_pkcs8_error() {
     // Test line 527: marshal_ed25519_pkcs8 error
-    let rng = &mut OsRng;
     
     // Test with wrong key length
     let wrong_length = vec![0u8; 31]; // Should be 32 bytes
@@ -2156,7 +2162,7 @@ fn test_detect_key_type_from_public_key_ecdsa_p256() {
 fn test_detect_key_type_from_public_key_ecdsa_p384() {
     // Test line 764: detect_key_type_from_public_key for P-384 (97 bytes, 0x04 prefix)
     // Create fake P-384 key with correct size and prefix
-    let mut fake_p384 = vec![0x04u8; 97]; // 97 bytes, 0x04 prefix
+    let fake_p384 = vec![0x04u8; 97]; // 97 bytes, 0x04 prefix
     
     // Should auto-detect as P-384
     let pkix_der = pkix::marshal_pkix_public_key(&fake_p384);
@@ -2164,7 +2170,7 @@ fn test_detect_key_type_from_public_key_ecdsa_p384() {
     let _ = pkix_der;
     
     // Test with wrong prefix (line 766)
-    let mut wrong_key = vec![0x03u8; 97]; // Wrong prefix
+    let wrong_key = vec![0x03u8; 97]; // Wrong prefix
     let result = pkix::marshal_pkix_public_key(&wrong_key);
     assert!(result.is_err());
     assert!(matches!(result, Err(BottleError::InvalidKeyType)));
@@ -2174,7 +2180,7 @@ fn test_detect_key_type_from_public_key_ecdsa_p384() {
 fn test_detect_key_type_from_public_key_ecdsa_p521() {
     // Test line 772: detect_key_type_from_public_key for P-521 (133 bytes, 0x04 prefix)
     // Create fake P-521 key with correct size and prefix
-    let mut fake_p521 = vec![0x04u8; 133]; // 133 bytes, 0x04 prefix
+    let fake_p521 = vec![0x04u8; 133]; // 133 bytes, 0x04 prefix
     
     // Should auto-detect as P-521
     let pkix_der = pkix::marshal_pkix_public_key(&fake_p521);
@@ -2182,7 +2188,7 @@ fn test_detect_key_type_from_public_key_ecdsa_p521() {
     let _ = pkix_der;
     
     // Test with wrong prefix (line 774)
-    let mut wrong_key = vec![0x03u8; 133]; // Wrong prefix
+    let wrong_key = vec![0x03u8; 133]; // Wrong prefix
     let result = pkix::marshal_pkix_public_key(&wrong_key);
     assert!(result.is_err());
     assert!(matches!(result, Err(BottleError::InvalidKeyType)));
@@ -2567,7 +2573,6 @@ fn test_ecdh_decrypt_x25519_short_ciphertext() {
 #[test]
 fn test_ecdh_encrypt_p256_path() {
     // Test lines 334-336: ecdh_encrypt with P-256 key (65 bytes)
-    use rust_bottle::ecdh;
     use rust_bottle::keys::EcdsaP256Key;
     use rand::rngs::OsRng;
     
@@ -2598,7 +2603,6 @@ fn test_ecdh_encrypt_mlkem_paths() {
     // Line 340: if public_key.len() == 1184 check
     // Line 342: return mlkem768_encrypt call
     // Line 345: return mlkem1024_encrypt call
-    use rust_bottle::ecdh;
     use rust_bottle::keys::{MlKem768Key, MlKem1024Key};
     use rand::rngs::OsRng;
     
@@ -2624,7 +2628,6 @@ fn test_ecdh_encrypt_mlkem_paths() {
 #[test]
 fn test_ecdh_decrypt_x25519_path() {
     // Test line 415: ecdh_decrypt with X25519 (successful path)
-    use rust_bottle::ecdh;
     use rust_bottle::keys::X25519Key;
     use rand::rngs::OsRng;
     
@@ -2640,7 +2643,6 @@ fn test_ecdh_decrypt_x25519_path() {
 #[test]
 fn test_ecdh_decrypt_p256_path() {
     // Test line 427: ecdh_decrypt with P-256 (successful path)
-    use rust_bottle::ecdh;
     use rust_bottle::keys::EcdsaP256Key;
     use rand::rngs::OsRng;
     
@@ -2659,8 +2661,6 @@ fn test_ecdh_decrypt_p256_path() {
 #[test]
 fn test_ecdh_decrypt_invalid_key_type() {
     // Test line 412: ecdh_decrypt with invalid key type
-    use rust_bottle::ecdh;
-    
     // Test with invalid key size (not 32 bytes)
     let invalid_key = vec![0u8; 50]; // Invalid key size
     let ciphertext = vec![0u8; 100];
@@ -2681,9 +2681,6 @@ fn test_ecdh_decrypt_try_into_error() {
     // So line 412 is actually the error path when try_into fails, which shouldn't happen
     // with a Vec<u8> of length 32. However, the code path exists for safety.
     // Let's ensure we test the case where we have exactly 32 bytes but it's not a valid X25519 key
-    use rust_bottle::ecdh;
-    use rand::rngs::OsRng;
-    
     // Create a 32-byte key that's not a valid X25519 key (all zeros won't work)
     let invalid_32_byte_key = vec![0u8; 32];
     // Create a ciphertext that's at least 32 bytes but won't decrypt with X25519
@@ -2726,7 +2723,7 @@ fn test_mlkem768_encrypt_full() {
     // Test with key size 1184 but invalid format (should fail at try_into or from_bytes)
     // Note: try_into will succeed for Vec<u8> of length 1184, but from_bytes might fail
     let invalid_key = vec![0u8; 1184];
-    let result2 = ecdh::mlkem768_encrypt(rng, plaintext, &invalid_key);
+    let _result2 = ecdh::mlkem768_encrypt(rng, plaintext, &invalid_key);
     // May fail at from_bytes or encapsulation, but exercises the code path
     
     // Test decryption to verify full round-trip
@@ -2769,7 +2766,7 @@ fn test_mlkem1024_encrypt_full() {
     
     // Test with key size 1568 but invalid format (should fail at try_into or from_bytes)
     let invalid_key = vec![0u8; 1568];
-    let result2 = ecdh::mlkem1024_encrypt(rng, plaintext, &invalid_key);
+    let _result2 = ecdh::mlkem1024_encrypt(rng, plaintext, &invalid_key);
     // May fail at from_bytes or encapsulation, but exercises the code path
     
     // Test decryption to verify full round-trip
@@ -2895,13 +2892,21 @@ fn test_decrypt_aes_gcm_success() {
 // ============================================================================
 // Kyber1024 Module Coverage Tests (patches/pqcrypto-kyber-0.5.0/src/kyber1024.rs)
 // ============================================================================
-// NOTE: These tests require the "pqcrypto-kyber" feature to be enabled.
-// To run these tests: cargo test --features pqcrypto-kyber --test coverage
+// NOTE: These tests are disabled because pqcrypto-kyber is not available as a dependency.
+// The kyber1024 module is in the patches directory and is not directly accessible.
+// To enable these tests, add pqcrypto-kyber as a dependency and uncomment the tests below.
 //
 // Lines to cover: 120-125, 127, 129, 134-139, 141, 157-159, 161-166, 169, 172,
 //                 178-180, 182-186, 188, 191, 206-213, 216, 218, 224-228, 230
 
-#[cfg(feature = "pqcrypto-kyber")]
+// These tests are commented out because pqcrypto_kyber is not available as a dependency.
+// The kyber1024 module is in the patches directory and is not directly accessible.
+// To enable these tests, add pqcrypto-kyber as a dependency and uncomment the tests below.
+//
+// Lines to cover: 120-125, 127, 129, 134-139, 141, 157-159, 161-166, 169, 172,
+//                 178-180, 182-186, 188, 191, 206-213, 216, 218, 224-228, 230
+
+/*
 #[test]
 fn test_kyber1024_keypair_portable() {
     // Test lines 120-125, 127, 129: keypair_portable function
@@ -2921,7 +2926,6 @@ fn test_kyber1024_keypair_portable() {
     assert!(!sk.as_bytes().iter().all(|&b| b == 0));
 }
 
-#[cfg(feature = "pqcrypto-kyber")]
 #[test]
 fn test_kyber1024_encapsulate_portable() {
     // Test lines 157-159, 161-166, 169, 172: encapsulate_portable function
@@ -2950,7 +2954,6 @@ fn test_kyber1024_encapsulate_portable() {
     assert_eq!(ss1.as_bytes(), ss2.as_bytes());
 }
 
-#[cfg(feature = "pqcrypto-kyber")]
 #[test]
 fn test_kyber1024_decapsulate_portable() {
     // Test lines 206-213, 216, 218: decapsulate_portable function
@@ -2974,7 +2977,6 @@ fn test_kyber1024_decapsulate_portable() {
     assert_eq!(ss2.as_bytes().len(), kyber1024::shared_secret_bytes());
 }
 
-#[cfg(feature = "pqcrypto-kyber")]
 #[test]
 fn test_kyber1024_keypair_multiple_times() {
     // Test to ensure keypair_portable is exercised multiple times
@@ -2994,7 +2996,6 @@ fn test_kyber1024_keypair_multiple_times() {
     }
 }
 
-#[cfg(feature = "pqcrypto-kyber")]
 #[test]
 fn test_kyber1024_encapsulate_decapsulate_round_trip() {
     // Comprehensive test to exercise all portable functions
@@ -3022,7 +3023,6 @@ fn test_kyber1024_encapsulate_decapsulate_round_trip() {
     }
 }
 
-#[cfg(feature = "pqcrypto-kyber")]
 #[test]
 fn test_kyber1024_from_bytes_error_paths() {
     // Test error paths in from_bytes (part of the simple_struct macro)
@@ -3047,7 +3047,6 @@ fn test_kyber1024_from_bytes_error_paths() {
     assert!(result4.is_err());
 }
 
-#[cfg(feature = "pqcrypto-kyber")]
 #[test]
 fn test_kyber1024_from_bytes_success() {
     // Test successful from_bytes paths
@@ -3079,4 +3078,5 @@ fn test_kyber1024_from_bytes_success() {
     // But we can verify the size is correct
     assert_eq!(ss.as_bytes().len(), ss_expected.as_bytes().len());
 }
+*/
 

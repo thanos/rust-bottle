@@ -507,7 +507,7 @@ fn test_pqc_keychain_signing() {
     let signature = keychain.sign(rng, &pub_key, message).unwrap();
 
     // Verify signature
-    let key = keychain.get_key(&pub_key).unwrap();
+    let _key = keychain.get_key(&pub_key).unwrap();
     // Note: We need to verify using the key's verify method
     // The keychain doesn't provide verify, so we get the key and verify
     // For this test, we'll just verify the signature was created
@@ -727,14 +727,15 @@ fn test_pqc_classical_mixed_keychain() {
     let rng = &mut OsRng;
     let mut keychain = Keychain::new();
 
-    // Add both classical and PQC keys
+    // Add both classical and PQC signing keys
+    // Note: X25519Key is for encryption, not signing, so it can't be added to keychain
     let ed25519_key = Ed25519Key::generate(rng);
     let mldsa_key = MlDsa44Key::generate(rng);
-    let x25519_key = X25519Key::generate(rng);
+    let mldsa65_key = MlDsa65Key::generate(rng);
 
     keychain.add_key(ed25519_key);
     keychain.add_key(mldsa_key);
-    keychain.add_key(x25519_key);
+    keychain.add_key(mldsa65_key);
 
     assert_eq!(keychain.signers().count(), 3);
 }

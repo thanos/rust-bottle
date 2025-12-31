@@ -915,36 +915,40 @@ impl MlKem768Key {
     ///
     /// # Returns
     ///
-    /// Private key bytes (2400 bytes for ML-KEM-768)
+    /// Private key bytes (3584 bytes for ML-KEM-768: 2400 bytes decapsulation key + 1184 bytes encapsulation key)
     ///
     /// # Security Warning
     ///
     /// Private keys are sensitive cryptographic material.
     pub fn private_key_bytes(&self) -> Vec<u8> {
-        self.decaps_key.as_bytes().to_vec()
+        let mut result = self.decaps_key.as_bytes().to_vec();
+        result.extend_from_slice(&self.encaps_key.as_bytes());
+        result
     }
 
     /// Create from private key bytes.
     ///
     /// # Arguments
     ///
-    /// * `bytes` - Private key bytes (2400 bytes)
+    /// * `bytes` - Private key bytes (3584 bytes: 2400 bytes decapsulation key + 1184 bytes encapsulation key)
     ///
     /// # Returns
     ///
     /// * `Ok(MlKem768Key)` - Reconstructed key pair
     /// * `Err(BottleError::InvalidKeyType)` - If the key format is invalid
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        if bytes.len() != 2400 {
+        const DK_SIZE: usize = 2400;
+        const PK_SIZE: usize = 1184;
+        const TOTAL_SIZE: usize = DK_SIZE + PK_SIZE;
+        if bytes.len() != TOTAL_SIZE {
             return Err(BottleError::InvalidKeyType);
         }
-        let bytes_array: [u8; 2400] = bytes.try_into()
+        // Extract decapsulation key (first 2400 bytes)
+        let decaps_key_bytes: [u8; DK_SIZE] = bytes[..DK_SIZE].try_into()
             .map_err(|_| BottleError::InvalidKeyType)?;
-        let decaps_key = <Kem<MlKem768Params> as KemCore>::DecapsulationKey::from_bytes((&bytes_array).into());
-        // Extract the encapsulation key from the decapsulation key
-        // The decapsulation key contains the encapsulation key, extract it
-        // ML-KEM-768: decapsulation key is 2400 bytes, encapsulation key is 1184 bytes (at the start)
-        let encaps_key_bytes: [u8; 1184] = bytes_array[..1184].try_into()
+        let decaps_key = <Kem<MlKem768Params> as KemCore>::DecapsulationKey::from_bytes((&decaps_key_bytes).into());
+        // Extract encapsulation key (last 1184 bytes)
+        let encaps_key_bytes: [u8; PK_SIZE] = bytes[DK_SIZE..].try_into()
             .map_err(|_| BottleError::InvalidKeyType)?;
         let encaps_key = <Kem<MlKem768Params> as KemCore>::EncapsulationKey::from_bytes((&encaps_key_bytes).into());
         Ok(Self {
@@ -1006,22 +1010,39 @@ impl MlKem1024Key {
     }
 
     /// Get the private key bytes.
+    ///
+    /// # Returns
+    ///
+    /// Private key bytes (4736 bytes for ML-KEM-1024: 3168 bytes decapsulation key + 1568 bytes encapsulation key)
     pub fn private_key_bytes(&self) -> Vec<u8> {
-        self.decaps_key.as_bytes().to_vec()
+        let mut result = self.decaps_key.as_bytes().to_vec();
+        result.extend_from_slice(&self.encaps_key.as_bytes());
+        result
     }
 
     /// Create from private key bytes.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - Private key bytes (4736 bytes: 3168 bytes decapsulation key + 1568 bytes encapsulation key)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(MlKem1024Key)` - Reconstructed key pair
+    /// * `Err(BottleError::InvalidKeyType)` - If the key format is invalid
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        if bytes.len() != 3168 {
+        const DK_SIZE: usize = 3168;
+        const PK_SIZE: usize = 1568;
+        const TOTAL_SIZE: usize = DK_SIZE + PK_SIZE;
+        if bytes.len() != TOTAL_SIZE {
             return Err(BottleError::InvalidKeyType);
         }
-        let bytes_array: [u8; 3168] = bytes.try_into()
+        // Extract decapsulation key (first 3168 bytes)
+        let decaps_key_bytes: [u8; DK_SIZE] = bytes[..DK_SIZE].try_into()
             .map_err(|_| BottleError::InvalidKeyType)?;
-        let decaps_key = <Kem<MlKem1024Params> as KemCore>::DecapsulationKey::from_bytes((&bytes_array).into());
-        // Extract the encapsulation key from the decapsulation key
-        // The decapsulation key contains the encapsulation key, extract it
-        // ML-KEM-1024: decapsulation key is 3168 bytes, encapsulation key is 1568 bytes (at the start)
-        let encaps_key_bytes: [u8; 1568] = bytes_array[..1568].try_into()
+        let decaps_key = <Kem<MlKem1024Params> as KemCore>::DecapsulationKey::from_bytes((&decaps_key_bytes).into());
+        // Extract encapsulation key (last 1568 bytes)
+        let encaps_key_bytes: [u8; PK_SIZE] = bytes[DK_SIZE..].try_into()
             .map_err(|_| BottleError::InvalidKeyType)?;
         let encaps_key = <Kem<MlKem1024Params> as KemCore>::EncapsulationKey::from_bytes((&encaps_key_bytes).into());
         Ok(Self {
@@ -1078,12 +1099,12 @@ impl MlDsa44Key {
 
     /// Create from private key bytes.
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        let secret_key = pqcrypto_dilithium::dilithium2::SecretKey::from_bytes(bytes)
+        let _secret_key = pqcrypto_dilithium::dilithium2::SecretKey::from_bytes(bytes)
             .map_err(|_| BottleError::InvalidKeyType)?;
         // Generate public key from secret key by creating a new keypair
         // Note: pqcrypto-dilithium doesn't have a direct public_key_from_secret_key function
         // So we need to derive it by creating a temporary keypair
-        let (public_key, _) = pqcrypto_dilithium::dilithium2::keypair();
+        let (_public_key, _) = pqcrypto_dilithium::dilithium2::keypair();
         // Actually, we can't derive public key from secret key directly in this API
         // So we'll need to store both or use a different approach
         // For now, let's require both keys to be provided
@@ -1154,7 +1175,7 @@ impl MlDsa65Key {
 
     /// Create from private key bytes.
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        let secret_key = <pqcrypto_dilithium::dilithium3::SecretKey as PqcSecretKey>::from_bytes(bytes)
+        let _secret_key = <pqcrypto_dilithium::dilithium3::SecretKey as PqcSecretKey>::from_bytes(bytes)
             .map_err(|_| BottleError::InvalidKeyType)?;
         // Cannot derive public key from secret key in this API
         Err(BottleError::InvalidKeyType)
@@ -1223,7 +1244,7 @@ impl MlDsa87Key {
 
     /// Create from private key bytes.
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        let secret_key = <pqcrypto_dilithium::dilithium5::SecretKey as PqcSecretKey>::from_bytes(bytes)
+        let _secret_key = <pqcrypto_dilithium::dilithium5::SecretKey as PqcSecretKey>::from_bytes(bytes)
             .map_err(|_| BottleError::InvalidKeyType)?;
         // Cannot derive public key from secret key in this API
         Err(BottleError::InvalidKeyType)
@@ -1293,7 +1314,7 @@ impl SlhDsa128sKey {
 
     /// Create from private key bytes.
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        let secret_key = <pqcrypto_sphincsplus::sphincsshake256128srobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
+        let _secret_key = <pqcrypto_sphincsplus::sphincsshake256128srobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
             .map_err(|_| BottleError::InvalidKeyType)?;
         // Cannot derive public key from secret key in this API
         Err(BottleError::InvalidKeyType)
@@ -1362,7 +1383,7 @@ impl SlhDsa192sKey {
 
     /// Create from private key bytes.
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        let secret_key = <pqcrypto_sphincsplus::sphincsshake256192srobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
+        let _secret_key = <pqcrypto_sphincsplus::sphincsshake256192srobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
             .map_err(|_| BottleError::InvalidKeyType)?;
         // Cannot derive public key from secret key in this API
         Err(BottleError::InvalidKeyType)
@@ -1431,7 +1452,7 @@ impl SlhDsa256sKey {
 
     /// Create from private key bytes.
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        let secret_key = <pqcrypto_sphincsplus::sphincsshake256256srobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
+        let _secret_key = <pqcrypto_sphincsplus::sphincsshake256256srobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
             .map_err(|_| BottleError::InvalidKeyType)?;
         // Cannot derive public key from secret key in this API
         Err(BottleError::InvalidKeyType)
