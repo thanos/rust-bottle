@@ -37,7 +37,7 @@ fn test_mlkem768_key_sizes() {
     let key = MlKem768Key::generate(rng);
     
     assert_eq!(key.public_key_bytes().len(), 1184);
-    assert_eq!(key.private_key_bytes().len(), 2400);
+    assert_eq!(key.private_key_bytes().len(), 3584); // 2400 decapsulation + 1184 encapsulation
 }
 
 #[cfg(feature = "ml-kem")]
@@ -81,7 +81,7 @@ fn test_mlkem1024_key_sizes() {
     let key = MlKem1024Key::generate(rng);
     
     assert_eq!(key.public_key_bytes().len(), 1568);
-    assert_eq!(key.private_key_bytes().len(), 3168);
+    assert_eq!(key.private_key_bytes().len(), 4736); // 3168 decapsulation + 1568 encapsulation
 }
 
 #[cfg(feature = "ml-kem")]
@@ -313,7 +313,8 @@ fn test_hybrid_encryption_fallback() {
     // Decrypt with X25519 only (fallback scenario)
     // Note: The hybrid format allows decryption with either key
     let x25519_sec: [u8; 32] = x25519_key.private_key_bytes().try_into().unwrap();
-    // Create a dummy ML-KEM key that won't work
+    // Create a dummy ML-KEM key that won't work (using old format size for backward compatibility test)
+    // The function accepts both 2400 bytes (decaps only) and 3584 bytes (full key)
     let dummy_mlkem_sec = vec![0u8; 2400];
     // The hybrid decrypt should try ML-KEM first, then fall back to X25519
     // For this test, we'll use the correct X25519 key

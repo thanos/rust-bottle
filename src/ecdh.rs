@@ -390,14 +390,14 @@ pub fn ecdh_decrypt(ciphertext: &[u8], private_key: &[u8]) -> Result<Vec<u8>> {
     #[cfg(feature = "ml-kem")]
     {
         // Try ML-KEM-768 (2400 bytes decapsulation key, or 3584 bytes full private key)
-        if private_key.len() == 2400 {
+        if private_key.len() == 2400 || private_key.len() == 3584 {
             if let Ok(result) = mlkem768_decrypt(ciphertext, private_key) {
                 return Ok(result);
             }
         }
         
         // Try ML-KEM-1024 (3168 bytes decapsulation key, or 4736 bytes full private key)
-        if private_key.len() == 3168 {
+        if private_key.len() == 3168 || private_key.len() == 4736 {
             if let Ok(result) = mlkem1024_decrypt(ciphertext, private_key) {
                 return Ok(result);
             }
