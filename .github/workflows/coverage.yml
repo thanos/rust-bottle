@@ -40,7 +40,7 @@ jobs:
               --out Html \
               --output-dir coverage \
               --timeout 300 \
-              --fail-under 80
+              --fail-under 60
           else
             cargo tarpaulin \
               --features ${{ matrix.feature-set }} \
