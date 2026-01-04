@@ -283,7 +283,7 @@ impl IDCard {
             .iter()
             .filter(|(_, info)| {
                 info.purposes.contains(&purpose.to_string())
-                    && info.expires_at.map_or(true, |exp| SystemTime::now() <= exp)
+                    && info.expires_at.is_none_or(|exp| SystemTime::now() <= exp)
             })
             .map(|(fingerprint, _)| fingerprint.clone())
             .collect()
@@ -352,9 +352,8 @@ impl IDCard {
         // Serialize everything except signature
         let mut card = self.clone();
         card.signature = None;
-        bincode::serialize(&card).map_err(|e| {
-            BottleError::Serialization(format!("Failed to serialize IDCard: {}", e))
-        })
+        bincode::serialize(&card)
+            .map_err(|e| BottleError::Serialization(format!("Failed to serialize IDCard: {}", e)))
     }
 
     /// Serialize the IDCard to bytes using bincode.
@@ -378,9 +377,8 @@ impl IDCard {
     /// let restored = IDCard::from_bytes(&bytes).unwrap();
     /// ```
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        bincode::serialize(self).map_err(|e| {
-            BottleError::Serialization(format!("Failed to serialize IDCard: {}", e))
-        })
+        bincode::serialize(self)
+            .map_err(|e| BottleError::Serialization(format!("Failed to serialize IDCard: {}", e)))
     }
 
     /// Deserialize an IDCard from bytes.
@@ -429,5 +427,3 @@ impl IDCard {
         Self::from_bytes(data)
     }
 }
-
-

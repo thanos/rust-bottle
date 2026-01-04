@@ -1,5 +1,5 @@
-use crate::errors::{BottleError, Result};
 use crate::ecdh::rsa_encrypt;
+use crate::errors::{BottleError, Result};
 use rand::{CryptoRng, RngCore};
 use rsa::RsaPublicKey;
 use zeroize::Zeroize;
@@ -72,40 +72,40 @@ pub fn encrypt_short_buffer<R: RngCore + CryptoRng>(
 ) -> Result<Vec<u8>> {
     // Try to parse as PKIX (SubjectPublicKeyInfo) format
     // Check if it looks like PKIX format (starts with DER SEQUENCE tag 0x30)
-    if public_key.len() > 0 && public_key[0] == 0x30 {
+    if !public_key.is_empty() && public_key[0] == 0x30 {
         // Try to parse as PKIX and extract RSA public key
         if let Ok(rsa_pub_key) = parse_rsa_public_key_from_pkix(public_key) {
             return rsa_encrypt(rng, plaintext, &rsa_pub_key);
         }
     }
-    
+
     // Note: PKCS#1 parsing is not yet fully implemented
     // For now, users should use rsa_encrypt directly with an RsaPublicKey reference,
     // or provide keys in PKIX format
-    
+
     // If we can't parse as RSA, return unsupported
     Err(BottleError::UnsupportedAlgorithm)
 }
 
 /// Parse RSA public key from PKIX (SubjectPublicKeyInfo) format.
 fn parse_rsa_public_key_from_pkix(der_bytes: &[u8]) -> Result<RsaPublicKey> {
-    use der::asn1::BitString;
+    use const_oid::db::rfc5912;
     use der::asn1::AnyRef;
+    use der::asn1::BitString;
     use der::Decode;
     use spki::SubjectPublicKeyInfo;
-    use const_oid::db::rfc5912;
-    
-    let spki: SubjectPublicKeyInfo<AnyRef, BitString> = SubjectPublicKeyInfo::from_der(der_bytes)
-        .map_err(|_| BottleError::InvalidKeyType)?;
-    
+
+    let spki: SubjectPublicKeyInfo<AnyRef, BitString> =
+        SubjectPublicKeyInfo::from_der(der_bytes).map_err(|_| BottleError::InvalidKeyType)?;
+
     // Check if it's an RSA key (OID 1.2.840.113549.1.1.1)
     if spki.algorithm.oid != rfc5912::RSA_ENCRYPTION {
         return Err(BottleError::InvalidKeyType);
     }
-    
+
     // Extract the RSA public key bytes (RSAPublicKey structure)
     let rsa_key_bytes = spki.subject_public_key.raw_bytes();
-    
+
     // Parse RSAPublicKey structure (SEQUENCE { n INTEGER, e INTEGER })
     parse_rsa_public_key_pkcs1(rsa_key_bytes)
 }
@@ -122,20 +122,20 @@ fn parse_rsa_public_key_from_pkix(der_bytes: &[u8]) -> Result<RsaPublicKey> {
 fn parse_rsa_public_key_pkcs1(der_bytes: &[u8]) -> Result<RsaPublicKey> {
     use der::Decode;
     use rsa::BigUint;
-    
+
     // Manual DER parsing of SEQUENCE { INTEGER, INTEGER }
     // DER format: [0x30 (SEQUENCE tag)] [length] [INTEGER n] [INTEGER e]
-    
+
     if der_bytes.is_empty() || der_bytes[0] != 0x30 {
         return Err(BottleError::InvalidKeyType);
     }
-    
+
     // Skip SEQUENCE tag (0x30) and length byte(s)
     let mut pos = 1;
     if pos >= der_bytes.len() {
         return Err(BottleError::InvalidKeyType);
     }
-    
+
     // Parse length (can be short form or long form)
     let seq_len = if (der_bytes[pos] & 0x80) == 0 {
         // Short form: length is in the byte itself
@@ -156,18 +156,17 @@ fn parse_rsa_public_key_pkcs1(der_bytes: &[u8]) -> Result<RsaPublicKey> {
         pos += len_bytes;
         len
     };
-    
+
     if pos + seq_len > der_bytes.len() {
         return Err(BottleError::InvalidKeyType);
     }
-    
+
     // Now parse the two INTEGERs from the sequence content
     let seq_content = &der_bytes[pos..pos + seq_len];
-    
+
     // Parse first INTEGER (modulus n)
-    let n_uint = der::asn1::Uint::from_der(seq_content)
-        .map_err(|_| BottleError::InvalidKeyType)?;
-    
+    let n_uint = der::asn1::Uint::from_der(seq_content).map_err(|_| BottleError::InvalidKeyType)?;
+
     // Calculate offset for second integer
     // INTEGER tag (0x02) + length + value
     let n_len = if seq_content.is_empty() || seq_content[0] != 0x02 {
@@ -196,22 +195,21 @@ fn parse_rsa_public_key_pkcs1(der_bytes: &[u8]) -> Result<RsaPublicKey> {
         };
         n_pos + n_val_len
     };
-    
+
     if n_len >= seq_content.len() {
         return Err(BottleError::InvalidKeyType);
     }
-    
+
     // Parse second INTEGER (exponent e)
     let e_uint = der::asn1::Uint::from_der(&seq_content[n_len..])
         .map_err(|_| BottleError::InvalidKeyType)?;
-    
+
     // Convert to BigUint
     let n = BigUint::from_bytes_be(n_uint.as_bytes());
     let e = BigUint::from_bytes_be(e_uint.as_bytes());
-    
+
     // Create RsaPublicKey
-    RsaPublicKey::new(n, e)
-        .map_err(|_| BottleError::InvalidKeyType)
+    RsaPublicKey::new(n, e).map_err(|_| BottleError::InvalidKeyType)
 }
 
 /// Decrypt a short buffer using a private key.
@@ -238,5 +236,3 @@ pub fn decrypt_short_buffer(_ciphertext: &[u8], _private_key: &[u8]) -> Result<V
     // For now, placeholder
     Err(BottleError::UnsupportedAlgorithm)
 }
-
-

@@ -66,9 +66,7 @@ impl Membership {
     /// ```
     pub fn new(member_idcard: &IDCard, group_public_key: &[u8]) -> Self {
         Self {
-            member_idcard: member_idcard
-                .to_bytes()
-                .unwrap_or_default(), // Should handle error properly
+            member_idcard: member_idcard.to_bytes().unwrap_or_default(), // Should handle error properly
             group_public_key: group_public_key.to_vec(),
             info: HashMap::new(),
             signature: None,
@@ -230,5 +228,3 @@ impl Membership {
         })
     }
 }
-
-

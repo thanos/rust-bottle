@@ -1,21 +1,25 @@
 use crate::errors::{BottleError, Result};
-use crate::signing::{Sign, Verify};
 use crate::keychain::SignerKey;
-use ed25519_dalek::{SigningKey as Ed25519SigningKey, VerifyingKey as Ed25519VerifyingKey, Signature};
+use crate::signing::{Sign, Verify};
+use ed25519_dalek::{
+    Signature, SigningKey as Ed25519SigningKey, VerifyingKey as Ed25519VerifyingKey,
+};
 use p256::ecdsa::{SigningKey as P256SigningKey, VerifyingKey as P256VerifyingKey};
 use rand::{CryptoRng, RngCore};
-use rsa::{RsaPrivateKey, RsaPublicKey, Pkcs1v15Sign};
-use sha2::{Sha256, Digest};
+use rsa::{Pkcs1v15Sign, RsaPrivateKey, RsaPublicKey};
+use sha2::{Digest, Sha256};
 
 // Post-quantum cryptography imports
 #[cfg(feature = "ml-kem")]
-use ml_kem::{EncodedSizeUser, KemCore, kem::Kem, MlKem768Params, MlKem1024Params};
+use ml_kem::{kem::Kem, EncodedSizeUser, KemCore, MlKem1024Params, MlKem768Params};
 #[cfg(feature = "post-quantum")]
 use pqcrypto_dilithium;
 #[cfg(feature = "post-quantum")]
 use pqcrypto_sphincsplus;
 #[cfg(feature = "post-quantum")]
-use pqcrypto_traits::sign::{PublicKey as PqcPublicKey, SecretKey as PqcSecretKey, DetachedSignature as PqcDetachedSignature};
+use pqcrypto_traits::sign::{
+    DetachedSignature as PqcDetachedSignature, PublicKey as PqcPublicKey, SecretKey as PqcSecretKey,
+};
 
 /// ECDSA P-256 key pair for digital signatures.
 ///
@@ -128,8 +132,8 @@ impl EcdsaP256Key {
     /// assert_eq!(original.public_key_bytes(), restored.public_key_bytes());
     /// ```
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        let signing_key = P256SigningKey::from_bytes(bytes.into())
-            .map_err(|_| BottleError::InvalidKeyType)?;
+        let signing_key =
+            P256SigningKey::from_bytes(bytes.into()).map_err(|_| BottleError::InvalidKeyType)?;
         let verifying_key = *signing_key.verifying_key();
         Ok(Self {
             signing_key,
@@ -202,7 +206,8 @@ impl Verify for EcdsaP256Key {
         let digest = sha2::Sha256::digest(message);
         let sig = ecdsa::Signature::from_bytes(signature.into())
             .map_err(|_| BottleError::VerifyFailed)?;
-        self.verifying_key.verify(&digest, &sig)
+        self.verifying_key
+            .verify(&digest, &sig)
             .map_err(|_| BottleError::VerifyFailed)?;
         Ok(())
     }
@@ -282,7 +287,7 @@ impl Ed25519Key {
         let verifying_key = signing_key.verifying_key();
         Self {
             signing_key,
-            verifying_key: verifying_key.clone(),
+            verifying_key,
         }
     }
 
@@ -342,12 +347,13 @@ impl Ed25519Key {
     /// assert_eq!(original.public_key_bytes(), restored.public_key_bytes());
     /// ```
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        let signing_key = Ed25519SigningKey::from_bytes(bytes.try_into()
-            .map_err(|_| BottleError::InvalidKeyType)?);
+        let signing_key = Ed25519SigningKey::from_bytes(
+            bytes.try_into().map_err(|_| BottleError::InvalidKeyType)?,
+        );
         let verifying_key = signing_key.verifying_key();
         Ok(Self {
             signing_key,
-            verifying_key: verifying_key.clone(),
+            verifying_key,
         })
     }
 }
@@ -406,9 +412,13 @@ impl Verify for Ed25519Key {
     /// ```
     fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
         use ed25519_dalek::Verifier;
-        let sig = Signature::from_bytes(signature.try_into()
-            .map_err(|_| BottleError::VerifyFailed)?);
-        self.verifying_key.verify(message, &sig)
+        let sig = Signature::from_bytes(
+            signature
+                .try_into()
+                .map_err(|_| BottleError::VerifyFailed)?,
+        );
+        self.verifying_key
+            .verify(message, &sig)
             .map_err(|_| BottleError::VerifyFailed)?;
         Ok(())
     }
@@ -489,7 +499,10 @@ impl X25519Key {
         // Create StaticSecret and derive public key
         let secret = StaticSecret::from(secret_bytes);
         let public = x25519_dalek::PublicKey::from(&secret);
-        Self { secret: secret_bytes, public }
+        Self {
+            secret: secret_bytes,
+            public,
+        }
     }
 
     /// Get the public key bytes.
@@ -549,12 +562,14 @@ impl X25519Key {
     /// ```
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
         use x25519_dalek::StaticSecret;
-        let secret_bytes: [u8; 32] = bytes.try_into()
-            .map_err(|_| BottleError::InvalidKeyType)?;
+        let secret_bytes: [u8; 32] = bytes.try_into().map_err(|_| BottleError::InvalidKeyType)?;
         // Create StaticSecret and derive public key
         let secret = StaticSecret::from(secret_bytes);
         let public = x25519_dalek::PublicKey::from(&secret);
-        Ok(Self { secret: secret_bytes, public })
+        Ok(Self {
+            secret: secret_bytes,
+            public,
+        })
     }
 }
 
@@ -614,11 +629,10 @@ impl RsaKey {
     /// let key = RsaKey::generate(rng, 2048).unwrap();
     /// ```
     pub fn generate<R: RngCore + CryptoRng>(rng: &mut R, bits: usize) -> Result<Self> {
-        if bits < 512 || bits % 8 != 0 {
+        if bits < 512 || !bits.is_multiple_of(8) {
             return Err(BottleError::InvalidKeyType);
         }
-        let private_key = RsaPrivateKey::new(rng, bits)
-            .map_err(|_| BottleError::InvalidKeyType)?;
+        let private_key = RsaPrivateKey::new(rng, bits).map_err(|_| BottleError::InvalidKeyType)?;
         let public_key = RsaPublicKey::from(&private_key);
         Ok(Self {
             private_key,
@@ -713,7 +727,8 @@ impl RsaKey {
         use rsa::Oaep;
         // OAEP with SHA-256
         let padding = Oaep::new::<Sha256>();
-        self.public_key.encrypt(rng, padding, data)
+        self.public_key
+            .encrypt(rng, padding, data)
             .map_err(|e| BottleError::Encryption(format!("RSA encryption failed: {}", e)))
     }
 
@@ -733,7 +748,8 @@ impl RsaKey {
         use rsa::Oaep;
         // OAEP with SHA-256
         let padding = Oaep::new::<Sha256>();
-        self.private_key.decrypt(padding, ciphertext)
+        self.private_key
+            .decrypt(padding, ciphertext)
             .map_err(|e| BottleError::Decryption(format!("RSA decryption failed: {}", e)))
     }
 
@@ -772,8 +788,9 @@ impl Sign for RsaKey {
         let mut hasher = Sha256::new();
         hasher.update(message);
         let hashed = hasher.finalize();
-        
-        self.private_key.sign(Pkcs1v15Sign::new::<Sha256>(), &hashed)
+
+        self.private_key
+            .sign(Pkcs1v15Sign::new::<Sha256>(), &hashed)
             .map_err(|_| BottleError::VerifyFailed)
     }
 }
@@ -811,8 +828,9 @@ impl Verify for RsaKey {
         let mut hasher = Sha256::new();
         hasher.update(message);
         let hashed = hasher.finalize();
-        
-        self.public_key.verify(Pkcs1v15Sign::new::<Sha256>(), &hashed, signature)
+
+        self.public_key
+            .verify(Pkcs1v15Sign::new::<Sha256>(), &hashed, signature)
             .map_err(|_| BottleError::VerifyFailed)?;
         Ok(())
     }
@@ -883,17 +901,23 @@ impl MlKem768Key {
     pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
         // ml-kem uses rand_core 0.9, but rand 0.8 uses rand_core 0.6
         // Create an adapter that implements rand_core 0.9 traits
-        use rand_core_09::{RngCore as RngCore09, CryptoRng as CryptoRng09};
-        
+        use rand_core_09::{CryptoRng as CryptoRng09, RngCore as RngCore09};
+
         struct RngAdapter<'a, R: RngCore + CryptoRng>(&'a mut R);
         impl<'a, R: RngCore + CryptoRng> RngCore09 for RngAdapter<'a, R> {
-            fn next_u32(&mut self) -> u32 { self.0.next_u32() }
-            fn next_u64(&mut self) -> u64 { self.0.next_u64() }
-            fn fill_bytes(&mut self, dest: &mut [u8]) { self.0.fill_bytes(dest) }
+            fn next_u32(&mut self) -> u32 {
+                self.0.next_u32()
+            }
+            fn next_u64(&mut self) -> u64 {
+                self.0.next_u64()
+            }
+            fn fill_bytes(&mut self, dest: &mut [u8]) {
+                self.0.fill_bytes(dest)
+            }
             // try_fill_bytes has a default implementation that calls fill_bytes, so we don't need to implement it
         }
         impl<'a, R: RngCore + CryptoRng> CryptoRng09 for RngAdapter<'a, R> {}
-        
+
         let mut adapter = RngAdapter(rng);
         let (dk, ek) = <Kem<MlKem768Params> as KemCore>::generate(&mut adapter);
         Self {
@@ -944,13 +968,19 @@ impl MlKem768Key {
             return Err(BottleError::InvalidKeyType);
         }
         // Extract decapsulation key (first 2400 bytes)
-        let decaps_key_bytes: [u8; DK_SIZE] = bytes[..DK_SIZE].try_into()
+        let decaps_key_bytes: [u8; DK_SIZE] = bytes[..DK_SIZE]
+            .try_into()
             .map_err(|_| BottleError::InvalidKeyType)?;
-        let decaps_key = <Kem<MlKem768Params> as KemCore>::DecapsulationKey::from_bytes((&decaps_key_bytes).into());
+        let decaps_key = <Kem<MlKem768Params> as KemCore>::DecapsulationKey::from_bytes(
+            (&decaps_key_bytes).into(),
+        );
         // Extract encapsulation key (last 1184 bytes)
-        let encaps_key_bytes: [u8; PK_SIZE] = bytes[DK_SIZE..].try_into()
+        let encaps_key_bytes: [u8; PK_SIZE] = bytes[DK_SIZE..]
+            .try_into()
             .map_err(|_| BottleError::InvalidKeyType)?;
-        let encaps_key = <Kem<MlKem768Params> as KemCore>::EncapsulationKey::from_bytes((&encaps_key_bytes).into());
+        let encaps_key = <Kem<MlKem768Params> as KemCore>::EncapsulationKey::from_bytes(
+            (&encaps_key_bytes).into(),
+        );
         Ok(Self {
             decaps_key,
             encaps_key,
@@ -985,17 +1015,23 @@ impl MlKem1024Key {
     pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
         // ml-kem uses rand_core 0.9, but rand 0.8 uses rand_core 0.6
         // Create an adapter that implements rand_core 0.9 traits
-        use rand_core_09::{RngCore as RngCore09, CryptoRng as CryptoRng09};
-        
+        use rand_core_09::{CryptoRng as CryptoRng09, RngCore as RngCore09};
+
         struct RngAdapter<'a, R: RngCore + CryptoRng>(&'a mut R);
         impl<'a, R: RngCore + CryptoRng> RngCore09 for RngAdapter<'a, R> {
-            fn next_u32(&mut self) -> u32 { self.0.next_u32() }
-            fn next_u64(&mut self) -> u64 { self.0.next_u64() }
-            fn fill_bytes(&mut self, dest: &mut [u8]) { self.0.fill_bytes(dest) }
+            fn next_u32(&mut self) -> u32 {
+                self.0.next_u32()
+            }
+            fn next_u64(&mut self) -> u64 {
+                self.0.next_u64()
+            }
+            fn fill_bytes(&mut self, dest: &mut [u8]) {
+                self.0.fill_bytes(dest)
+            }
             // try_fill_bytes has a default implementation that calls fill_bytes, so we don't need to implement it
         }
         impl<'a, R: RngCore + CryptoRng> CryptoRng09 for RngAdapter<'a, R> {}
-        
+
         let mut adapter = RngAdapter(rng);
         let (dk, ek) = <Kem<MlKem1024Params> as KemCore>::generate(&mut adapter);
         Self {
@@ -1038,13 +1074,19 @@ impl MlKem1024Key {
             return Err(BottleError::InvalidKeyType);
         }
         // Extract decapsulation key (first 3168 bytes)
-        let decaps_key_bytes: [u8; DK_SIZE] = bytes[..DK_SIZE].try_into()
+        let decaps_key_bytes: [u8; DK_SIZE] = bytes[..DK_SIZE]
+            .try_into()
             .map_err(|_| BottleError::InvalidKeyType)?;
-        let decaps_key = <Kem<MlKem1024Params> as KemCore>::DecapsulationKey::from_bytes((&decaps_key_bytes).into());
+        let decaps_key = <Kem<MlKem1024Params> as KemCore>::DecapsulationKey::from_bytes(
+            (&decaps_key_bytes).into(),
+        );
         // Extract encapsulation key (last 1568 bytes)
-        let encaps_key_bytes: [u8; PK_SIZE] = bytes[DK_SIZE..].try_into()
+        let encaps_key_bytes: [u8; PK_SIZE] = bytes[DK_SIZE..]
+            .try_into()
             .map_err(|_| BottleError::InvalidKeyType)?;
-        let encaps_key = <Kem<MlKem1024Params> as KemCore>::EncapsulationKey::from_bytes((&encaps_key_bytes).into());
+        let encaps_key = <Kem<MlKem1024Params> as KemCore>::EncapsulationKey::from_bytes(
+            (&encaps_key_bytes).into(),
+        );
         Ok(Self {
             decaps_key,
             encaps_key,
@@ -1075,7 +1117,6 @@ pub struct MlDsa44Key {
     secret_key: pqcrypto_dilithium::dilithium2::SecretKey,
 }
 
-#[cfg(feature = "post-quantum")]
 #[cfg(feature = "post-quantum")]
 impl MlDsa44Key {
     /// Generate a new ML-DSA-44 key pair.
@@ -1116,7 +1157,12 @@ impl MlDsa44Key {
 impl Sign for MlDsa44Key {
     fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
         let detached_sig = pqcrypto_dilithium::dilithium2::detached_sign(message, &self.secret_key);
-        Ok(<pqcrypto_dilithium::dilithium2::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
+        Ok(
+            <pqcrypto_dilithium::dilithium2::DetachedSignature as PqcDetachedSignature>::as_bytes(
+                &detached_sig,
+            )
+            .to_vec(),
+        )
     }
 }
 
@@ -1125,8 +1171,12 @@ impl Verify for MlDsa44Key {
     fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
         let detached_sig = <pqcrypto_dilithium::dilithium2::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
             .map_err(|_| BottleError::VerifyFailed)?;
-        pqcrypto_dilithium::dilithium2::verify_detached_signature(&detached_sig, message, &self.public_key)
-            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_dilithium::dilithium2::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
         Ok(())
     }
 }
@@ -1165,18 +1215,21 @@ impl MlDsa65Key {
 
     /// Get the public key bytes.
     pub fn public_key_bytes(&self) -> Vec<u8> {
-        <pqcrypto_dilithium::dilithium3::PublicKey as PqcPublicKey>::as_bytes(&self.public_key).to_vec()
+        <pqcrypto_dilithium::dilithium3::PublicKey as PqcPublicKey>::as_bytes(&self.public_key)
+            .to_vec()
     }
 
     /// Get the private key bytes.
     pub fn private_key_bytes(&self) -> Vec<u8> {
-        <pqcrypto_dilithium::dilithium3::SecretKey as PqcSecretKey>::as_bytes(&self.secret_key).to_vec()
+        <pqcrypto_dilithium::dilithium3::SecretKey as PqcSecretKey>::as_bytes(&self.secret_key)
+            .to_vec()
     }
 
     /// Create from private key bytes.
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        let _secret_key = <pqcrypto_dilithium::dilithium3::SecretKey as PqcSecretKey>::from_bytes(bytes)
-            .map_err(|_| BottleError::InvalidKeyType)?;
+        let _secret_key =
+            <pqcrypto_dilithium::dilithium3::SecretKey as PqcSecretKey>::from_bytes(bytes)
+                .map_err(|_| BottleError::InvalidKeyType)?;
         // Cannot derive public key from secret key in this API
         Err(BottleError::InvalidKeyType)
     }
@@ -1186,7 +1239,12 @@ impl MlDsa65Key {
 impl Sign for MlDsa65Key {
     fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
         let detached_sig = pqcrypto_dilithium::dilithium3::detached_sign(message, &self.secret_key);
-        Ok(<pqcrypto_dilithium::dilithium3::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
+        Ok(
+            <pqcrypto_dilithium::dilithium3::DetachedSignature as PqcDetachedSignature>::as_bytes(
+                &detached_sig,
+            )
+            .to_vec(),
+        )
     }
 }
 
@@ -1195,8 +1253,12 @@ impl Verify for MlDsa65Key {
     fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
         let detached_sig = <pqcrypto_dilithium::dilithium3::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
             .map_err(|_| BottleError::VerifyFailed)?;
-        pqcrypto_dilithium::dilithium3::verify_detached_signature(&detached_sig, message, &self.public_key)
-            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_dilithium::dilithium3::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
         Ok(())
     }
 }
@@ -1234,18 +1296,21 @@ impl MlDsa87Key {
 
     /// Get the public key bytes.
     pub fn public_key_bytes(&self) -> Vec<u8> {
-        <pqcrypto_dilithium::dilithium5::PublicKey as PqcPublicKey>::as_bytes(&self.public_key).to_vec()
+        <pqcrypto_dilithium::dilithium5::PublicKey as PqcPublicKey>::as_bytes(&self.public_key)
+            .to_vec()
     }
 
     /// Get the private key bytes.
     pub fn private_key_bytes(&self) -> Vec<u8> {
-        <pqcrypto_dilithium::dilithium5::SecretKey as PqcSecretKey>::as_bytes(&self.secret_key).to_vec()
+        <pqcrypto_dilithium::dilithium5::SecretKey as PqcSecretKey>::as_bytes(&self.secret_key)
+            .to_vec()
     }
 
     /// Create from private key bytes.
     pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
-        let _secret_key = <pqcrypto_dilithium::dilithium5::SecretKey as PqcSecretKey>::from_bytes(bytes)
-            .map_err(|_| BottleError::InvalidKeyType)?;
+        let _secret_key =
+            <pqcrypto_dilithium::dilithium5::SecretKey as PqcSecretKey>::from_bytes(bytes)
+                .map_err(|_| BottleError::InvalidKeyType)?;
         // Cannot derive public key from secret key in this API
         Err(BottleError::InvalidKeyType)
     }
@@ -1255,7 +1320,12 @@ impl MlDsa87Key {
 impl Sign for MlDsa87Key {
     fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
         let detached_sig = pqcrypto_dilithium::dilithium5::detached_sign(message, &self.secret_key);
-        Ok(<pqcrypto_dilithium::dilithium5::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
+        Ok(
+            <pqcrypto_dilithium::dilithium5::DetachedSignature as PqcDetachedSignature>::as_bytes(
+                &detached_sig,
+            )
+            .to_vec(),
+        )
     }
 }
 
@@ -1264,8 +1334,12 @@ impl Verify for MlDsa87Key {
     fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
         let detached_sig = <pqcrypto_dilithium::dilithium5::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
             .map_err(|_| BottleError::VerifyFailed)?;
-        pqcrypto_dilithium::dilithium5::verify_detached_signature(&detached_sig, message, &self.public_key)
-            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_dilithium::dilithium5::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
         Ok(())
     }
 }
@@ -1304,12 +1378,18 @@ impl SlhDsa128sKey {
 
     /// Get the public key bytes.
     pub fn public_key_bytes(&self) -> Vec<u8> {
-        <pqcrypto_sphincsplus::sphincsshake256128srobust::PublicKey as PqcPublicKey>::as_bytes(&self.public_key).to_vec()
+        <pqcrypto_sphincsplus::sphincsshake256128srobust::PublicKey as PqcPublicKey>::as_bytes(
+            &self.public_key,
+        )
+        .to_vec()
     }
 
     /// Get the private key bytes.
     pub fn private_key_bytes(&self) -> Vec<u8> {
-        <pqcrypto_sphincsplus::sphincsshake256128srobust::SecretKey as PqcSecretKey>::as_bytes(&self.secret_key).to_vec()
+        <pqcrypto_sphincsplus::sphincsshake256128srobust::SecretKey as PqcSecretKey>::as_bytes(
+            &self.secret_key,
+        )
+        .to_vec()
     }
 
     /// Create from private key bytes.
@@ -1324,7 +1404,10 @@ impl SlhDsa128sKey {
 #[cfg(feature = "post-quantum")]
 impl Sign for SlhDsa128sKey {
     fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
-        let detached_sig = pqcrypto_sphincsplus::sphincsshake256128srobust::detached_sign(message, &self.secret_key);
+        let detached_sig = pqcrypto_sphincsplus::sphincsshake256128srobust::detached_sign(
+            message,
+            &self.secret_key,
+        );
         Ok(<pqcrypto_sphincsplus::sphincsshake256128srobust::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
     }
 }
@@ -1334,8 +1417,12 @@ impl Verify for SlhDsa128sKey {
     fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
         let detached_sig = <pqcrypto_sphincsplus::sphincsshake256128srobust::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
             .map_err(|_| BottleError::VerifyFailed)?;
-        pqcrypto_sphincsplus::sphincsshake256128srobust::verify_detached_signature(&detached_sig, message, &self.public_key)
-            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_sphincsplus::sphincsshake256128srobust::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
         Ok(())
     }
 }
@@ -1373,12 +1460,18 @@ impl SlhDsa192sKey {
 
     /// Get the public key bytes.
     pub fn public_key_bytes(&self) -> Vec<u8> {
-        <pqcrypto_sphincsplus::sphincsshake256192srobust::PublicKey as PqcPublicKey>::as_bytes(&self.public_key).to_vec()
+        <pqcrypto_sphincsplus::sphincsshake256192srobust::PublicKey as PqcPublicKey>::as_bytes(
+            &self.public_key,
+        )
+        .to_vec()
     }
 
     /// Get the private key bytes.
     pub fn private_key_bytes(&self) -> Vec<u8> {
-        <pqcrypto_sphincsplus::sphincsshake256192srobust::SecretKey as PqcSecretKey>::as_bytes(&self.secret_key).to_vec()
+        <pqcrypto_sphincsplus::sphincsshake256192srobust::SecretKey as PqcSecretKey>::as_bytes(
+            &self.secret_key,
+        )
+        .to_vec()
     }
 
     /// Create from private key bytes.
@@ -1393,7 +1486,10 @@ impl SlhDsa192sKey {
 #[cfg(feature = "post-quantum")]
 impl Sign for SlhDsa192sKey {
     fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
-        let detached_sig = pqcrypto_sphincsplus::sphincsshake256192srobust::detached_sign(message, &self.secret_key);
+        let detached_sig = pqcrypto_sphincsplus::sphincsshake256192srobust::detached_sign(
+            message,
+            &self.secret_key,
+        );
         Ok(<pqcrypto_sphincsplus::sphincsshake256192srobust::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
     }
 }
@@ -1403,8 +1499,12 @@ impl Verify for SlhDsa192sKey {
     fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
         let detached_sig = <pqcrypto_sphincsplus::sphincsshake256192srobust::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
             .map_err(|_| BottleError::VerifyFailed)?;
-        pqcrypto_sphincsplus::sphincsshake256192srobust::verify_detached_signature(&detached_sig, message, &self.public_key)
-            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_sphincsplus::sphincsshake256192srobust::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
         Ok(())
     }
 }
@@ -1442,12 +1542,18 @@ impl SlhDsa256sKey {
 
     /// Get the public key bytes.
     pub fn public_key_bytes(&self) -> Vec<u8> {
-        <pqcrypto_sphincsplus::sphincsshake256256srobust::PublicKey as PqcPublicKey>::as_bytes(&self.public_key).to_vec()
+        <pqcrypto_sphincsplus::sphincsshake256256srobust::PublicKey as PqcPublicKey>::as_bytes(
+            &self.public_key,
+        )
+        .to_vec()
     }
 
     /// Get the private key bytes.
     pub fn private_key_bytes(&self) -> Vec<u8> {
-        <pqcrypto_sphincsplus::sphincsshake256256srobust::SecretKey as PqcSecretKey>::as_bytes(&self.secret_key).to_vec()
+        <pqcrypto_sphincsplus::sphincsshake256256srobust::SecretKey as PqcSecretKey>::as_bytes(
+            &self.secret_key,
+        )
+        .to_vec()
     }
 
     /// Create from private key bytes.
@@ -1462,7 +1568,10 @@ impl SlhDsa256sKey {
 #[cfg(feature = "post-quantum")]
 impl Sign for SlhDsa256sKey {
     fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
-        let detached_sig = pqcrypto_sphincsplus::sphincsshake256256srobust::detached_sign(message, &self.secret_key);
+        let detached_sig = pqcrypto_sphincsplus::sphincsshake256256srobust::detached_sign(
+            message,
+            &self.secret_key,
+        );
         Ok(<pqcrypto_sphincsplus::sphincsshake256256srobust::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
     }
 }
@@ -1472,8 +1581,12 @@ impl Verify for SlhDsa256sKey {
     fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
         let detached_sig = <pqcrypto_sphincsplus::sphincsshake256256srobust::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
             .map_err(|_| BottleError::VerifyFailed)?;
-        pqcrypto_sphincsplus::sphincsshake256256srobust::verify_detached_signature(&detached_sig, message, &self.public_key)
-            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_sphincsplus::sphincsshake256256srobust::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
         Ok(())
     }
 }
@@ -1488,4 +1601,3 @@ impl SignerKey for SlhDsa256sKey {
         self.public_key_bytes()
     }
 }
-
