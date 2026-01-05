@@ -1,5 +1,10 @@
 # rust-bottle
 
+
+<img width="800" alt="Gemini_Generated_Image_y0ub5dy0ub5dy0ub" src="https://github.com/user-attachments/assets/35e40b25-e4db-479e-bf43-2fbd3fda8a13" />
+
+
+
 Rust implementation of the Bottle protocol - a layered message container system with encryption and signatures. This library provides secure, type-safe cryptographic operations for building privacy-preserving applications.
 
 ## Overview
