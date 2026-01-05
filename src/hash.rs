@@ -168,4 +168,3 @@ pub fn sha3_384(data: &[u8]) -> Vec<u8> {
 pub fn sha3_512(data: &[u8]) -> Vec<u8> {
     hash::<Sha3_512>(data)
 }
-

@@ -84,11 +84,7 @@ pub trait Verify {
 ///
 /// * `Ok(Vec<u8>)` - Signature bytes
 /// * `Err(BottleError::VerifyFailed)` - If signing fails
-pub fn sign<R: RngCore, S: Sign>(
-    rng: &mut R,
-    signer: &S,
-    message: &[u8],
-) -> Result<Vec<u8>> {
+pub fn sign<R: RngCore, S: Sign>(rng: &mut R, signer: &S, message: &[u8]) -> Result<Vec<u8>> {
     signer.sign(rng, message)
 }
 
@@ -110,5 +106,3 @@ pub fn sign<R: RngCore, S: Sign>(
 pub fn verify<V: Verify>(verifier: &V, message: &[u8], signature: &[u8]) -> Result<()> {
     verifier.verify(message, signature)
 }
-
-

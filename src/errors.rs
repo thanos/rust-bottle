@@ -72,5 +72,3 @@ impl From<std::io::Error> for BottleError {
         BottleError::Io(err.to_string())
     }
 }
-
-

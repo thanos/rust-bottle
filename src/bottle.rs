@@ -208,7 +208,11 @@ impl Bottle {
     /// bottle.encrypt(rng, &key.public_key_bytes()).unwrap();
     /// assert!(bottle.is_encrypted());
     /// ```
-    pub fn encrypt<R: RngCore + rand::CryptoRng>(&mut self, rng: &mut R, public_key: &[u8]) -> Result<()> {
+    pub fn encrypt<R: RngCore + rand::CryptoRng>(
+        &mut self,
+        rng: &mut R,
+        public_key: &[u8],
+    ) -> Result<()> {
         // Determine what to encrypt
         let data_to_encrypt = if self.encryptions.is_empty() {
             // First encryption: encrypt the message directly
@@ -231,7 +235,7 @@ impl Bottle {
 
         // Replace message with the new ciphertext
         self.message = ciphertext;
-        
+
         // Add the layer
         self.encryptions.push(layer);
         Ok(())
@@ -268,7 +272,12 @@ impl Bottle {
     /// bottle.sign(rng, &key, &pub_key).unwrap();
     /// assert!(bottle.is_signed());
     /// ```
-    pub fn sign<R: RngCore>(&mut self, rng: &mut R, signer: &dyn Sign, public_key: &[u8]) -> Result<()> {
+    pub fn sign<R: RngCore>(
+        &mut self,
+        rng: &mut R,
+        signer: &dyn Sign,
+        public_key: &[u8],
+    ) -> Result<()> {
         // Create data to sign (message + all encryptions)
         let data_to_sign = self.create_signing_data()?;
 
@@ -372,9 +381,8 @@ impl Bottle {
     /// let restored = Bottle::from_bytes(&bytes).unwrap();
     /// ```
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        bincode::serialize(self).map_err(|e| {
-            BottleError::Serialization(format!("Failed to serialize bottle: {}", e))
-        })
+        bincode::serialize(self)
+            .map_err(|e| BottleError::Serialization(format!("Failed to serialize bottle: {}", e)))
     }
 
     /// Deserialize bottle from bytes.
@@ -492,7 +500,7 @@ impl Opener {
         // Decrypt layers from outermost to innermost
         // The message contains the outermost ciphertext
         let mut current_data = bottle.message.clone();
-        
+
         for _layer in bottle.encryptions.iter().rev() {
             // Decrypt this layer
             current_data = ecdh_decrypt(&current_data, key)?;
@@ -537,8 +545,16 @@ impl Opener {
         Ok(BottleInfo {
             is_encrypted: bottle.is_encrypted(),
             is_signed: bottle.is_signed(),
-            signers: bottle.signatures.iter().map(|s| s.key_fingerprint.clone()).collect(),
-            recipients: bottle.encryptions.iter().map(|e| e.key_fingerprint.clone()).collect(),
+            signers: bottle
+                .signatures
+                .iter()
+                .map(|s| s.key_fingerprint.clone())
+                .collect(),
+            recipients: bottle
+                .encryptions
+                .iter()
+                .map(|e| e.key_fingerprint.clone())
+                .collect(),
         })
     }
 }
@@ -585,4 +601,3 @@ impl BottleInfo {
         self.signers.contains(&fingerprint)
     }
 }
-

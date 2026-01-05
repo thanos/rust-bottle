@@ -3,13 +3,21 @@ use rand::rngs::OsRng;
 
 // Import all types needed for tests
 #[cfg(feature = "ml-kem")]
-use rust_bottle::{MlKem768Key, MlKem1024Key, mlkem768_encrypt, mlkem768_decrypt, mlkem1024_encrypt, mlkem1024_decrypt, hybrid_encrypt_mlkem768_x25519, hybrid_decrypt_mlkem768_x25519};
+use rust_bottle::{
+    hybrid_decrypt_mlkem768_x25519, hybrid_encrypt_mlkem768_x25519, mlkem1024_decrypt,
+    mlkem1024_encrypt, mlkem768_decrypt, mlkem768_encrypt, MlKem1024Key, MlKem768Key,
+};
 
 #[cfg(feature = "post-quantum")]
-use rust_bottle::{MlDsa44Key, MlDsa65Key, MlDsa87Key, SlhDsa128sKey, SlhDsa192sKey, SlhDsa256sKey};
+use rust_bottle::{
+    MlDsa44Key, MlDsa65Key, MlDsa87Key, SlhDsa128sKey, SlhDsa192sKey, SlhDsa256sKey,
+};
 
 // Import common types
-use rust_bottle::{Bottle, Opener, Keychain, IDCard, X25519Key, Ed25519Key, ecdh_encrypt, ecdh_decrypt, Sign, Verify};
+use rust_bottle::{
+    ecdh_decrypt, ecdh_encrypt, Bottle, Ed25519Key, IDCard, Keychain, Opener, Sign, Verify,
+    X25519Key,
+};
 
 // ============================================================================
 // ML-KEM Encryption Tests
@@ -35,9 +43,9 @@ fn test_mlkem768_encryption() {
 fn test_mlkem768_key_sizes() {
     let rng = &mut OsRng;
     let key = MlKem768Key::generate(rng);
-    
+
     assert_eq!(key.public_key_bytes().len(), 1184);
-    assert_eq!(key.private_key_bytes().len(), 2400);
+    assert_eq!(key.private_key_bytes().len(), 3584); // 2400 decapsulation + 1184 encapsulation
 }
 
 #[cfg(feature = "ml-kem")]
@@ -79,16 +87,16 @@ fn test_mlkem1024_encryption() {
 fn test_mlkem1024_key_sizes() {
     let rng = &mut OsRng;
     let key = MlKem1024Key::generate(rng);
-    
+
     assert_eq!(key.public_key_bytes().len(), 1568);
-    assert_eq!(key.private_key_bytes().len(), 3168);
+    assert_eq!(key.private_key_bytes().len(), 4736); // 3168 decapsulation + 1568 encapsulation
 }
 
 #[cfg(feature = "ml-kem")]
 #[test]
 fn test_mlkem_automatic_detection() {
     let rng = &mut OsRng;
-    
+
     // Test ML-KEM-768 automatic detection
     let mlkem768_key = MlKem768Key::generate(rng);
     let plaintext = b"Auto-detected ML-KEM-768";
@@ -123,7 +131,7 @@ fn test_mldsa44_signing() {
 
     // Wrong message fails
     assert!(key.verify(b"Different message", &signature).is_err());
-    
+
     // Wrong signature fails
     let wrong_sig = vec![0u8; signature.len()];
     assert!(key.verify(message, &wrong_sig).is_err());
@@ -134,14 +142,14 @@ fn test_mldsa44_signing() {
 fn test_mldsa44_key_sizes() {
     let rng = &mut OsRng;
     let key = MlDsa44Key::generate(rng);
-    
+
     let pub_key = key.public_key_bytes();
     let priv_key = key.private_key_bytes();
-    
+
     // Actual sizes from pqcrypto-dilithium v0.5 (dilithium2)
     assert_eq!(pub_key.len(), 1312);
     assert_eq!(priv_key.len(), 2560);
-    
+
     // Sign to check signature size
     let signature = key.sign(rng, b"test").unwrap();
     assert!(signature.len() >= 2000); // ML-DSA-44 signatures are ~2420 bytes
@@ -163,7 +171,7 @@ fn test_mldsa65_signing() {
 fn test_mldsa65_key_sizes() {
     let rng = &mut OsRng;
     let key = MlDsa65Key::generate(rng);
-    
+
     // Actual sizes from pqcrypto-dilithium v0.5 (dilithium3)
     // Just verify keys are not empty and have reasonable sizes
     assert!(key.public_key_bytes().len() > 1000);
@@ -186,7 +194,7 @@ fn test_mldsa87_signing() {
 fn test_mldsa87_key_sizes() {
     let rng = &mut OsRng;
     let key = MlDsa87Key::generate(rng);
-    
+
     // Actual sizes from pqcrypto-dilithium v0.5 (dilithium5)
     // Just verify keys are not empty and have reasonable sizes
     assert!(key.public_key_bytes().len() > 2000);
@@ -206,7 +214,7 @@ fn test_slhdsa128s_signing() {
 
     let signature = key.sign(rng, message).unwrap();
     assert!(key.verify(message, &signature).is_ok());
-    
+
     // Wrong message fails
     assert!(key.verify(b"Different message", &signature).is_err());
 }
@@ -216,10 +224,10 @@ fn test_slhdsa128s_signing() {
 fn test_slhdsa128s_key_sizes() {
     let rng = &mut OsRng;
     let key = SlhDsa128sKey::generate(rng);
-    
+
     assert_eq!(key.public_key_bytes().len(), 32);
     assert_eq!(key.private_key_bytes().len(), 64);
-    
+
     // Sign to check signature size
     let signature = key.sign(rng, b"test").unwrap();
     assert!(signature.len() >= 7000); // SLH-DSA-128s signatures are ~7856 bytes
@@ -241,7 +249,7 @@ fn test_slhdsa192s_signing() {
 fn test_slhdsa192s_key_sizes() {
     let rng = &mut OsRng;
     let key = SlhDsa192sKey::generate(rng);
-    
+
     assert_eq!(key.public_key_bytes().len(), 48);
     assert_eq!(key.private_key_bytes().len(), 96);
 }
@@ -262,7 +270,7 @@ fn test_slhdsa256s_signing() {
 fn test_slhdsa256s_key_sizes() {
     let rng = &mut OsRng;
     let key = SlhDsa256sKey::generate(rng);
-    
+
     assert_eq!(key.public_key_bytes().len(), 64);
     assert_eq!(key.private_key_bytes().len(), 128);
 }
@@ -285,7 +293,8 @@ fn test_hybrid_encryption() {
         plaintext,
         &mlkem_key.public_key_bytes(),
         &x25519_key.public_key_bytes(),
-    ).unwrap();
+    )
+    .unwrap();
 
     // Decrypt with ML-KEM
     let mlkem_sec = mlkem_key.private_key_bytes();
@@ -308,12 +317,14 @@ fn test_hybrid_encryption_fallback() {
         plaintext,
         &mlkem_key.public_key_bytes(),
         &x25519_key.public_key_bytes(),
-    ).unwrap();
+    )
+    .unwrap();
 
     // Decrypt with X25519 only (fallback scenario)
     // Note: The hybrid format allows decryption with either key
     let x25519_sec: [u8; 32] = x25519_key.private_key_bytes().try_into().unwrap();
-    // Create a dummy ML-KEM key that won't work
+    // Create a dummy ML-KEM key that won't work (using old format size for backward compatibility test)
+    // The function accepts both 2400 bytes (decaps only) and 3584 bytes (full key)
     let dummy_mlkem_sec = vec![0u8; 2400];
     // The hybrid decrypt should try ML-KEM first, then fall back to X25519
     // For this test, we'll use the correct X25519 key
@@ -342,7 +353,9 @@ fn test_pqc_bottle_encryption() {
 
     // Decrypt
     let opener = Opener::new();
-    let decrypted = opener.open(&bottle, Some(&mlkem_key.private_key_bytes())).unwrap();
+    let decrypted = opener
+        .open(&bottle, Some(&mlkem_key.private_key_bytes()))
+        .unwrap();
     assert_eq!(decrypted, b"Post-quantum encrypted");
 }
 
@@ -369,14 +382,14 @@ fn test_pqc_bottle_signing() {
 fn test_pqc_bottle_encrypted_and_signed() {
     let rng = &mut OsRng;
     let mut bottle = Bottle::new(b"Post-quantum encrypted and signed".to_vec());
-    
+
     let mlkem_key = MlKem768Key::generate(rng);
     let mldsa_key = MlDsa44Key::generate(rng);
     let mldsa_pub = mldsa_key.public_key_bytes();
 
     // Encrypt with ML-KEM
     bottle.encrypt(rng, &mlkem_key.public_key_bytes()).unwrap();
-    
+
     // Sign with ML-DSA
     bottle.sign(rng, &mldsa_key, &mldsa_pub).unwrap();
 
@@ -385,9 +398,11 @@ fn test_pqc_bottle_encrypted_and_signed() {
 
     // Decrypt and verify
     let opener = Opener::new();
-    let decrypted = opener.open(&bottle, Some(&mlkem_key.private_key_bytes())).unwrap();
+    let decrypted = opener
+        .open(&bottle, Some(&mlkem_key.private_key_bytes()))
+        .unwrap();
     assert_eq!(decrypted, b"Post-quantum encrypted and signed");
-    
+
     let info = opener.open_info(&bottle).unwrap();
     assert!(info.is_signed_by(&mldsa_pub));
 }
@@ -397,7 +412,7 @@ fn test_pqc_bottle_encrypted_and_signed() {
 fn test_pqc_bottle_layered_encryption() {
     let rng = &mut OsRng;
     let mut bottle = Bottle::new(b"Multi-layer PQC encrypted".to_vec());
-    
+
     let key1 = MlKem768Key::generate(rng);
     let key2 = MlKem1024Key::generate(rng);
 
@@ -406,7 +421,7 @@ fn test_pqc_bottle_layered_encryption() {
     bottle.encrypt(rng, &key2.public_key_bytes()).unwrap();
 
     assert_eq!(bottle.encryption_count(), 2);
-    
+
     let opener = Opener::new();
     let info = opener.open_info(&bottle).unwrap();
     assert!(info.is_encrypted);
@@ -418,11 +433,11 @@ fn test_pqc_bottle_layered_encryption() {
 fn test_pqc_bottle_multiple_signatures() {
     let rng = &mut OsRng;
     let mut bottle = Bottle::new(b"Multi-signed PQC message".to_vec());
-    
+
     let mldsa_key1 = MlDsa44Key::generate(rng);
     let mldsa_key2 = MlDsa65Key::generate(rng);
     let slhdsa_key = SlhDsa128sKey::generate(rng);
-    
+
     let pub1 = mldsa_key1.public_key_bytes();
     let pub2 = mldsa_key2.public_key_bytes();
     let pub3 = slhdsa_key.public_key_bytes();
@@ -433,7 +448,7 @@ fn test_pqc_bottle_multiple_signatures() {
     bottle.sign(rng, &slhdsa_key, &pub3).unwrap();
 
     assert!(bottle.is_signed());
-    
+
     let opener = Opener::new();
     let info = opener.open_info(&bottle).unwrap();
     assert!(info.is_signed_by(&pub1));
@@ -447,7 +462,7 @@ fn test_pqc_bottle_multiple_signatures() {
 fn test_pqc_bottle_serialization() {
     let rng = &mut OsRng;
     let mut bottle = Bottle::new(b"Serializable PQC bottle".to_vec());
-    
+
     let mlkem_key = MlKem768Key::generate(rng);
     let mldsa_key = MlDsa44Key::generate(rng);
     let pub_key = mldsa_key.public_key_bytes();
@@ -458,13 +473,13 @@ fn test_pqc_bottle_serialization() {
 
     // Serialize
     let serialized = bottle.to_bytes().unwrap();
-    
+
     // Deserialize
     let deserialized = Bottle::from_bytes(&serialized).unwrap();
-    
+
     assert_eq!(deserialized.encryption_count(), bottle.encryption_count());
     assert_eq!(deserialized.metadata("pqc"), Some("true"));
-    
+
     // Verify signature still works
     let opener = Opener::new();
     let info = opener.open_info(&deserialized).unwrap();
@@ -507,7 +522,7 @@ fn test_pqc_keychain_signing() {
     let signature = keychain.sign(rng, &pub_key, message).unwrap();
 
     // Verify signature
-    let key = keychain.get_key(&pub_key).unwrap();
+    let _key = keychain.get_key(&pub_key).unwrap();
     // Note: We need to verify using the key's verify method
     // The keychain doesn't provide verify, so we get the key and verify
     // For this test, we'll just verify the signature was created
@@ -547,7 +562,9 @@ fn test_pqc_idcard() {
     idcard.set_key_purposes(&mldsa_key.public_key_bytes(), &["sign"]);
 
     // Test key purpose
-    assert!(idcard.test_key_purpose(&mldsa_key.public_key_bytes(), "sign").is_ok());
+    assert!(idcard
+        .test_key_purpose(&mldsa_key.public_key_bytes(), "sign")
+        .is_ok());
 }
 
 #[cfg(all(feature = "post-quantum", feature = "ml-kem"))]
@@ -556,20 +573,24 @@ fn test_pqc_idcard_multiple_keys() {
     let rng = &mut OsRng;
     let mldsa_key = MlDsa44Key::generate(rng);
     let mlkem_key = MlKem768Key::generate(rng);
-    
+
     let mut idcard = IDCard::new(&mldsa_key.public_key_bytes());
-    
+
     idcard.set_key_purposes(&mldsa_key.public_key_bytes(), &["sign"]);
     idcard.set_key_purposes(&mlkem_key.public_key_bytes(), &["decrypt"]);
 
     // Test purposes
-    assert!(idcard.test_key_purpose(&mldsa_key.public_key_bytes(), "sign").is_ok());
-    assert!(idcard.test_key_purpose(&mlkem_key.public_key_bytes(), "decrypt").is_ok());
-    
+    assert!(idcard
+        .test_key_purpose(&mldsa_key.public_key_bytes(), "sign")
+        .is_ok());
+    assert!(idcard
+        .test_key_purpose(&mlkem_key.public_key_bytes(), "decrypt")
+        .is_ok());
+
     // Get keys by purpose
     let sign_keys = idcard.get_keys("sign");
     assert_eq!(sign_keys.len(), 1);
-    
+
     let decrypt_keys = idcard.get_keys("decrypt");
     assert_eq!(decrypt_keys.len(), 1);
 }
@@ -598,17 +619,16 @@ fn test_pqc_idcard_signing() {
 fn test_mlkem_key_bytes() {
     let rng = &mut OsRng;
     let key = MlKem768Key::generate(rng);
-    
+
     let pub_bytes = key.public_key_bytes();
     let priv_bytes = key.private_key_bytes();
-    
+
     // Verify key bytes are not empty
     assert!(!pub_bytes.is_empty());
     assert!(!priv_bytes.is_empty());
-    
+
     // Verify key bytes are different
     assert_ne!(pub_bytes, priv_bytes);
-    
 }
 
 #[cfg(feature = "post-quantum")]
@@ -616,10 +636,10 @@ fn test_mlkem_key_bytes() {
 fn test_mldsa_key_bytes() {
     let rng = &mut OsRng;
     let key = MlDsa44Key::generate(rng);
-    
+
     let pub_bytes = key.public_key_bytes();
     let priv_bytes = key.private_key_bytes();
-    
+
     assert!(!pub_bytes.is_empty());
     assert!(!priv_bytes.is_empty());
     assert_ne!(pub_bytes, priv_bytes);
@@ -630,10 +650,10 @@ fn test_mldsa_key_bytes() {
 fn test_slhdsa_key_bytes() {
     let rng = &mut OsRng;
     let key = SlhDsa128sKey::generate(rng);
-    
+
     let pub_bytes = key.public_key_bytes();
     let priv_bytes = key.private_key_bytes();
-    
+
     assert!(!pub_bytes.is_empty());
     assert!(!priv_bytes.is_empty());
     assert_ne!(pub_bytes, priv_bytes);
@@ -669,11 +689,11 @@ fn test_mldsa_wrong_signature() {
 
     // Wrong message
     assert!(key.verify(b"Wrong message", &signature).is_err());
-    
+
     // Wrong signature
     let wrong_sig = vec![0u8; signature.len()];
     assert!(key.verify(message, &wrong_sig).is_err());
-    
+
     // Empty signature
     assert!(key.verify(message, &[]).is_err());
 }
@@ -687,7 +707,7 @@ fn test_mlkem_invalid_ciphertext() {
     // Try to decrypt invalid ciphertext
     let invalid_ciphertext = vec![0u8; 100];
     assert!(mlkem768_decrypt(&invalid_ciphertext, &key.private_key_bytes()).is_err());
-    
+
     // Empty ciphertext
     assert!(mlkem768_decrypt(&[], &key.private_key_bytes()).is_err());
 }
@@ -701,11 +721,11 @@ fn test_mlkem_invalid_ciphertext() {
 fn test_pqc_classical_mixed_bottle() {
     let rng = &mut OsRng;
     let mut bottle = Bottle::new(b"Mixed classical and PQC".to_vec());
-    
+
     // Use classical encryption
     let x25519_key = X25519Key::generate(rng);
     bottle.encrypt(rng, &x25519_key.public_key_bytes()).unwrap();
-    
+
     // Use PQC signing
     let mldsa_key = MlDsa44Key::generate(rng);
     let pub_key = mldsa_key.public_key_bytes();
@@ -713,9 +733,11 @@ fn test_pqc_classical_mixed_bottle() {
 
     // Decrypt with classical key
     let opener = Opener::new();
-    let decrypted = opener.open(&bottle, Some(&x25519_key.private_key_bytes())).unwrap();
+    let decrypted = opener
+        .open(&bottle, Some(&x25519_key.private_key_bytes()))
+        .unwrap();
     assert_eq!(decrypted, b"Mixed classical and PQC");
-    
+
     // Verify PQC signature
     let info = opener.open_info(&bottle).unwrap();
     assert!(info.is_signed_by(&pub_key));
@@ -727,14 +749,15 @@ fn test_pqc_classical_mixed_keychain() {
     let rng = &mut OsRng;
     let mut keychain = Keychain::new();
 
-    // Add both classical and PQC keys
+    // Add both classical and PQC signing keys
+    // Note: X25519Key is for encryption, not signing, so it can't be added to keychain
     let ed25519_key = Ed25519Key::generate(rng);
     let mldsa_key = MlDsa44Key::generate(rng);
-    let x25519_key = X25519Key::generate(rng);
+    let mldsa65_key = MlDsa65Key::generate(rng);
 
     keychain.add_key(ed25519_key);
     keychain.add_key(mldsa_key);
-    keychain.add_key(x25519_key);
+    keychain.add_key(mldsa65_key);
 
     assert_eq!(keychain.signers().count(), 3);
 }

@@ -72,33 +72,32 @@ pub use membership::Membership;
 pub use signing::{Sign, Verify};
 
 /// ECDH encryption and decryption functions
-pub use ecdh::{ecdh_encrypt, ecdh_decrypt, ECDHEncrypt, ECDHDecrypt, rsa_encrypt, rsa_decrypt};
+pub use ecdh::{ecdh_decrypt, ecdh_encrypt, rsa_decrypt, rsa_encrypt, ECDHDecrypt, ECDHEncrypt};
 
 /// Post-quantum encryption functions (requires `ml-kem` feature)
 #[cfg(feature = "ml-kem")]
 pub use ecdh::{
-    mlkem768_encrypt, mlkem768_decrypt,
-    mlkem1024_encrypt, mlkem1024_decrypt,
-    hybrid_encrypt_mlkem768_x25519, hybrid_decrypt_mlkem768_x25519,
+    hybrid_decrypt_mlkem768_x25519, hybrid_encrypt_mlkem768_x25519, mlkem1024_decrypt,
+    mlkem1024_encrypt, mlkem768_decrypt, mlkem768_encrypt,
 };
 
 /// Cryptographic key types (classical)
-pub use keys::{EcdsaP256Key, Ed25519Key, X25519Key, RsaKey};
+pub use keys::{EcdsaP256Key, Ed25519Key, RsaKey, X25519Key};
 
 /// Post-quantum signature key types (requires `post-quantum` feature)
 #[cfg(feature = "post-quantum")]
-pub use keys::{
-    MlDsa44Key, MlDsa65Key, MlDsa87Key,
-    SlhDsa128sKey, SlhDsa192sKey, SlhDsa256sKey,
-};
+pub use keys::{MlDsa44Key, MlDsa65Key, MlDsa87Key, SlhDsa128sKey, SlhDsa192sKey, SlhDsa256sKey};
 
 /// Post-quantum encryption key types (requires `ml-kem` feature)
 #[cfg(feature = "ml-kem")]
-pub use keys::{MlKem768Key, MlKem1024Key};
+pub use keys::{MlKem1024Key, MlKem768Key};
 
 /// PKIX/PKCS#8 key serialization
-pub use pkix::{KeyType, marshal_pkix_public_key, marshal_pkix_public_key_pem, marshal_pkix_public_key_with_type, parse_pkix_public_key, parse_pkix_public_key_pem, marshal_pkcs8_private_key, marshal_pkcs8_private_key_pem, parse_pkcs8_private_key, parse_pkcs8_private_key_pem};
+pub use pkix::{
+    marshal_pkcs8_private_key, marshal_pkcs8_private_key_pem, marshal_pkix_public_key,
+    marshal_pkix_public_key_pem, marshal_pkix_public_key_with_type, parse_pkcs8_private_key,
+    parse_pkcs8_private_key_pem, parse_pkix_public_key, parse_pkix_public_key_pem, KeyType,
+};
 
 /// Utility functions
-pub use utils::{mem_clr, encrypt_short_buffer, decrypt_short_buffer};
-
+pub use utils::{decrypt_short_buffer, encrypt_short_buffer, mem_clr};
