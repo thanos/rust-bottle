@@ -1,4 +1,5 @@
 use crate::errors::{BottleError, Result};
+use crate::tpm::ECDHHandler;
 use p256::ecdh::EphemeralSecret;
 use p256::{PublicKey, SecretKey};
 use rand::{CryptoRng, RngCore};
@@ -326,6 +327,56 @@ pub fn ecdh_encrypt<R: RngCore + CryptoRng>(
     plaintext: &[u8],
     public_key: &[u8],
 ) -> Result<Vec<u8>> {
+    ecdh_encrypt_with_handler(rng, plaintext, public_key, None)
+}
+
+/// Generic ECDH encryption function with optional TPM/HSM handler.
+///
+/// This function is similar to `ecdh_encrypt`. The handler parameter is currently
+/// unused for encryption (encryption always uses software-generated ephemeral keys),
+/// but is provided for API consistency. Handlers are primarily used during
+/// decryption when the recipient's private key is stored in TPM/HSM.
+///
+/// # Arguments
+///
+/// * `rng` - A cryptographically secure random number generator
+/// * `plaintext` - The message to encrypt
+/// * `public_key` - The recipient's public key (any supported format)
+/// * `handler` - Optional TPM/HSM handler (currently unused for encryption)
+///
+/// # Returns
+///
+/// * `Ok(Vec<u8>)` - Encrypted data with ephemeral public key prepended
+/// * `Err(BottleError::InvalidKeyType)` - If the key format is not recognized
+/// * `Err(BottleError::Encryption)` - If encryption fails
+///
+/// # Example
+///
+/// ```rust
+/// use rust_bottle::ecdh::ecdh_encrypt_with_handler;
+/// use rust_bottle::keys::X25519Key;
+/// use rand::rngs::OsRng;
+///
+/// let rng = &mut OsRng;
+/// let key = X25519Key::generate(rng);
+/// let plaintext = b"Secret message";
+///
+/// // Encryption always uses software implementation
+/// let ciphertext = ecdh_encrypt_with_handler(
+///     rng,
+///     plaintext,
+///     &key.public_key_bytes(),
+///     None,
+/// ).unwrap();
+/// ```
+pub fn ecdh_encrypt_with_handler<R: RngCore + CryptoRng>(
+    rng: &mut R,
+    plaintext: &[u8],
+    public_key: &[u8],
+    _handler: Option<&dyn ECDHHandler>,
+) -> Result<Vec<u8>> {
+    // Encryption always uses software implementation with ephemeral keys
+    // Handlers are used during decryption when the recipient's key is in TPM/HSM
     // Try to determine key type and use appropriate function
     // X25519 keys are 32 bytes
     if public_key.len() == 32 {
@@ -391,6 +442,69 @@ pub fn ecdh_encrypt<R: RngCore + CryptoRng>(
 /// assert_eq!(decrypted, plaintext);
 /// ```
 pub fn ecdh_decrypt(ciphertext: &[u8], private_key: &[u8]) -> Result<Vec<u8>> {
+    ecdh_decrypt_with_handler(ciphertext, private_key, None)
+}
+
+/// Generic ECDH decryption function with optional TPM/HSM handler.
+///
+/// This function is similar to `ecdh_decrypt`, but allows specifying a TPM/HSM
+/// handler for hardware-backed key operations. If a handler is provided, it will
+/// use the handler's private key (stored in TPM/HSM) for ECDH operations instead
+/// of the provided private_key parameter.
+///
+/// # Arguments
+///
+/// * `ciphertext` - Encrypted data with ephemeral public key prepended
+/// * `private_key` - The recipient's private key (ignored if handler is provided)
+/// * `handler` - Optional TPM/HSM handler for hardware-backed operations
+///
+/// # Returns
+///
+/// * `Ok(Vec<u8>)` - Decrypted plaintext
+/// * `Err(BottleError::InvalidKeyType)` - If the key format is not recognized
+/// * `Err(BottleError::Decryption)` - If decryption fails
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use rust_bottle::ecdh::ecdh_decrypt_with_handler;
+///
+/// // Without handler (software implementation)
+/// // let decrypted = ecdh_decrypt_with_handler(&ciphertext, &private_key, None)?;
+///
+/// // With TPM handler (if available)
+/// // The handler's private key (stored in TPM) will be used for decryption
+/// // let tpm_handler = TpmHandler::new()?;
+/// // let decrypted = ecdh_decrypt_with_handler(&ciphertext, &[], Some(&tpm_handler))?;
+/// ```
+pub fn ecdh_decrypt_with_handler(
+    ciphertext: &[u8],
+    private_key: &[u8],
+    handler: Option<&dyn ECDHHandler>,
+) -> Result<Vec<u8>> {
+    // If a handler is provided, use it for decryption
+    if let Some(h) = handler {
+        // Get the handler's public key to determine key type and ephemeral key size
+        let handler_pub_key = h.public_key()?;
+        
+        // Extract ephemeral public key from ciphertext
+        // The format depends on the key type (32 bytes for X25519, 65 for P-256)
+        if ciphertext.len() < handler_pub_key.len() {
+            return Err(BottleError::InvalidFormat);
+        }
+        
+        let ephemeral_pub_key = &ciphertext[..handler_pub_key.len()];
+        let encrypted_data = &ciphertext[handler_pub_key.len()..];
+        
+        // Use handler for ECDH (uses TPM/HSM private key)
+        let shared_secret = h.ecdh(ephemeral_pub_key)?;
+        let key = derive_key(&shared_secret);
+        
+        // Decrypt
+        return decrypt_aes_gcm(&key, encrypted_data);
+    }
+    
+    // Fall back to software implementation
     #[cfg(feature = "ml-kem")]
     {
         // Try ML-KEM-768 (2400 bytes decapsulation key, or 3584 bytes full private key)

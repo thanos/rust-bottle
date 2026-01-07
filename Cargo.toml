@@ -81,6 +81,7 @@ pqcrypto-traits = { version = "0.3", optional = true }  # Traits for PQC types
 default = []
 post-quantum = ["pqcrypto-dilithium", "pqcrypto-sphincsplus", "pqcrypto-traits"]  # ML-DSA and SLH-DSA only
 ml-kem = ["dep:ml-kem", "dep:rand_core_09", "dep:zerocopy", "dep:hybrid-array", "dep:typenum"]  # ML-KEM encryption (pure Rust, works on all platforms including macOS/ARM)
+tpm = []  # TPM/HSM support (requires implementing ECDHHandler trait for your TPM library)
 
 [dev-dependencies]
 criterion = "0.5"
