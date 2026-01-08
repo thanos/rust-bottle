@@ -620,7 +620,6 @@ pub fn mlkem768_encrypt<R: RngCore + CryptoRng>(
     Ok(result)
 }
 
-#[cfg(feature = "ml-kem")]
 /// ML-KEM-768 decryption (post-quantum).
 ///
 /// # Arguments
@@ -681,7 +680,6 @@ pub fn mlkem768_decrypt(ciphertext: &[u8], secret_key: &[u8]) -> Result<Vec<u8>>
     decrypt_aes_gcm(&key, aes_ct)
 }
 
-#[cfg(feature = "ml-kem")]
 /// ML-KEM-1024 encryption (post-quantum).
 ///
 /// # Arguments
@@ -745,7 +743,6 @@ pub fn mlkem1024_encrypt<R: RngCore + CryptoRng>(
     Ok(result)
 }
 
-#[cfg(feature = "ml-kem")]
 /// ML-KEM-1024 decryption (post-quantum).
 ///
 /// # Arguments
@@ -800,7 +797,6 @@ pub fn mlkem1024_decrypt(ciphertext: &[u8], secret_key: &[u8]) -> Result<Vec<u8>
     decrypt_aes_gcm(&key, aes_ct)
 }
 
-#[cfg(feature = "ml-kem")]
 /// Hybrid encryption: ML-KEM-768 + X25519.
 ///
 /// This provides both post-quantum and classical security by combining
