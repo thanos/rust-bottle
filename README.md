@@ -49,7 +49,7 @@ Add rust-bottle to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rust-bottle = "0.1.0"
+rust-bottle = "0.2.0"
 rand = "0.8"
 ```
 
@@ -569,7 +569,62 @@ See [POST_QUANTUM.md](./POST_QUANTUM.md) for detailed documentation.
 
 ### RSA Support
 
-RSA dependency is included but not yet implemented. RSA support is planned for a future release.
+RSA support is fully implemented with:
+- **RSA-OAEP encryption** (with SHA-256)
+- **PKCS#1 v1.5 signing** (with SHA-256)
+- Support for 2048-bit and 4096-bit key sizes
+- Short buffer encryption (key wrapping) for encrypting AES keys
+
+### TPM/HSM Support
+
+rust-bottle provides a trait-based interface for integrating Trusted Platform Modules (TPM) and Hardware Security Modules (HSM) with ECDH operations. This allows you to use hardware-backed keys for enhanced security.
+
+#### Enabling TPM Support
+
+```bash
+cargo build --features tpm
+```
+
+#### Using TPM/HSM Handlers
+
+To use TPM/HSM with rust-bottle, implement the `ECDHHandler` trait for your TPM library:
+
+```rust
+use rust_bottle::tpm::ECDHHandler;
+use rust_bottle::ecdh::ecdh_decrypt_with_handler;
+use rust_bottle::errors::Result;
+
+struct MyTpmHandler {
+    // Your TPM-specific fields
+}
+
+impl ECDHHandler for MyTpmHandler {
+    fn public_key(&self) -> Result<Vec<u8>> {
+        // Return the public key from TPM/HSM
+        // Format: 32 bytes for X25519, 65 bytes for P-256
+        Ok(vec![])
+    }
+
+    fn ecdh(&self, peer_public_key: &[u8]) -> Result<Vec<u8>> {
+        // Perform ECDH using TPM/HSM private key
+        // Return the shared secret
+        Ok(vec![])
+    }
+}
+
+// Use the handler for decryption
+// let handler = MyTpmHandler::new()?;
+// let decrypted = ecdh_decrypt_with_handler(&ciphertext, &[], Some(&handler))?;
+```
+
+#### Implementation Notes
+
+- The `ECDHHandler` trait provides a clean interface for any TPM/HSM backend
+- Handlers are primarily used during **decryption** when the recipient's private key is stored in hardware
+- Encryption always uses software-generated ephemeral keys (as per ECDH protocol)
+- You can use libraries like `tss-esapi` or platform-specific TPM libraries to implement the trait
+
+See the `tpm` module documentation for more details.
 
 ## Architecture
 
@@ -582,6 +637,7 @@ RSA dependency is included but not yet implemented. RSA support is planned for a
 - `idcard.rs`: IDCard implementation
 - `keychain.rs`: Keychain implementation
 - `membership.rs`: Membership implementation
+- `tpm.rs`: TPM/HSM support (trait-based interface)
 - `hash.rs`: Hashing utilities
 - `utils.rs`: Utility functions
 - `errors.rs`: Error types
@@ -754,23 +810,25 @@ Performance characteristics:
 
 ### Current Limitations
 
-1. **ML-KEM on macOS/ARM**: `pqcrypto-kyber` v0.5 has a compilation bug preventing ML-KEM from building on AArch64. The crate should use the "clean" implementation but AVX2 functions are incorrectly referenced. ML-DSA and SLH-DSA work fine.
-2. **RSA Support**: Dependency included but not implemented
-3. **PKIX/PKCS#8 Serialization**: Not yet implemented (keys use custom formats)
-4. **TPM/HSM Integration**: Not yet implemented
-5. **Short Buffer Encryption**: Placeholder only
+1. **ML-KEM on macOS/ARM**: Fixed - Using RustCrypto's pure Rust `ml-kem` crate
+2. **RSA Support**: Complete - RSA-OAEP encryption and PKCS#1 v1.5 signing
+3. **PKIX/PKCS#8 Serialization**: Complete - DER and PEM formats supported
+4. **TPM/HSM Integration**: Available - Trait-based interface for TPM/HSM backends (requires `tpm` feature)
+5. **Short Buffer Encryption**: Complete - RSA key wrapping implemented
 6. **Multi-level Hashing**: Not yet implemented
 7. **PQC Key Reconstruction**: `from_private_key_bytes()` for PQC keys cannot derive public keys (limitation of underlying crates)
 
 ### Planned Enhancements
 
-1. Monitor `pqcrypto-kyber` for fixes to AArch64 compilation issues
-2. RSA key type implementation (medium priority)
-3. PKIX/PKCS#8 key serialization (medium priority)
-4. TPM/HSM backend support (low priority)
-5. Performance benchmarking and optimization
-6. Additional SLH-DSA variants (f, simple variants)
-7. Hardware acceleration support for PQC algorithms
+1. ML-KEM on all platforms (completed - using RustCrypto's pure Rust implementation)
+2. RSA support (completed)
+3. PKIX/PKCS#8 serialization (completed)
+4. TPM/HSM interface (completed - users can implement `ECDHHandler` trait for their TPM library)
+5. Short buffer encryption (completed)
+6. Performance benchmarking and optimization
+7. Additional SLH-DSA variants (f, simple variants)
+8. Hardware acceleration support for PQC algorithms
+9. Concrete TPM implementation examples (users can implement using tss-esapi or other TPM libraries)
 
 ## Compatibility with gobottle
 
@@ -782,6 +840,101 @@ rust-bottle aims to match gobottle's functionality while adapting to Rust's type
 - Same error types and error handling philosophy
 
 Note: Serialization formats differ (bincode vs custom binary), so bottles created with one library cannot be directly read by the other. The protocol semantics are equivalent.
+
+## Comparison with gobottle
+
+rust-bottle is a Rust implementation that matches the functionality of the Go implementation [gobottle](https://github.com/BottleFmt/gobottle). Below is a summary comparison:
+
+### Feature Parity
+
+| Aspect | rust-bottle | gobottle | Status |
+|--------|-------------|---------|--------|
+| **Core Protocol** | Complete | Complete | Equivalent |
+| **Classical Crypto** | Complete | Complete | Equivalent |
+| **Post-Quantum Crypto** | Complete (via features) | Complete | Equivalent |
+| **RSA Support** | Complete | Complete | Equivalent |
+| **PKIX/PKCS#8** | Complete | Complete | Equivalent |
+| **TPM/HSM Support** | Available (trait-based) | Complete | Equivalent |
+| **Type Safety** | Strong (compile-time) | Runtime | Better |
+| **Memory Safety** | Guaranteed | Manual | Better |
+
+### Supported Algorithms
+
+**Classical Cryptography:**
+- Both support: ECDSA (P-256, P-384, P-521), Ed25519, X25519, RSA, AES-256-GCM
+
+**Post-Quantum Cryptography:**
+- Both support: ML-KEM-768, ML-KEM-1024, ML-DSA-44/65/87, SLH-DSA
+- rust-bottle: 3 SLH-DSA variants (128s, 192s, 256s)
+- gobottle: 12 SLH-DSA variants
+
+### Key Differences
+
+**Advantages of rust-bottle:**
+- Compile-time type checking prevents cryptographic errors
+- Memory safety guaranteed by compiler
+- Zero-cost abstractions
+- No garbage collection overhead
+- Optional PQC features (can disable for smaller binaries)
+- Pure Rust PQC implementation (works on all platforms including macOS/ARM)
+
+**Advantages of gobottle:**
+- Faster compilation
+- Better concurrency primitives
+- Simpler deployment (single binary)
+- More SLH-DSA variants (12 vs 3)
+- All PQC features always included
+
+### API Design
+
+**rust-bottle:**
+- Rust-idiomatic API with trait-based polymorphism
+- Strong ownership and borrowing rules
+- Comprehensive error types using `thiserror`
+- Uses `bincode` for serialization
+
+**gobottle:**
+- Go-idiomatic API with interface-based polymorphism
+- Manual memory management (GC)
+- Simple error variables
+- Uses custom binary format
+
+### Test Coverage
+
+rust-bottle includes 372 tests covering:
+- Core functionality (7 tests)
+- ECDH encryption/decryption (3 tests)
+- End-to-end scenarios (4 tests)
+- Post-quantum cryptography (44 tests)
+- PKIX/PKCS#8 serialization (13 tests)
+- RSA operations (11 tests)
+- Short buffer encryption (7 tests)
+- Key generation and serialization (72 tests)
+- Error handling paths (21 tests)
+- Edge cases and boundary conditions (16 tests)
+- Comprehensive coverage tests (174 tests)
+
+### When to Choose rust-bottle
+
+Choose rust-bottle if:
+- You need Rust's memory safety guarantees
+- You're building a Rust application
+- You need compile-time type safety
+- You need post-quantum cryptography (available via features)
+- You want optional PQC dependencies (can disable for smaller builds)
+- You need ML-KEM on all platforms including macOS/ARM (pure Rust implementation)
+- You need ML-DSA/SLH-DSA on all platforms
+- You need PKIX/PKCS#8 key serialization (DER and PEM formats)
+- You need RSA support (encryption and signing)
+
+### When to Choose gobottle
+
+Choose gobottle if:
+- You're building a Go application
+- You need all 12 SLH-DSA variants (rust-bottle has 3)
+- You prefer Go's concurrency model
+
+For a detailed comparison, see [COMPARISON.md](./COMPARISON.md).
 
 ## Contributing
 

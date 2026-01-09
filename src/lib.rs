@@ -51,6 +51,7 @@ pub mod keys;
 pub mod membership;
 pub mod pkix;
 pub mod signing;
+pub mod tpm;
 pub mod utils;
 
 /// Core bottle types for message containers
@@ -72,7 +73,10 @@ pub use membership::Membership;
 pub use signing::{Sign, Verify};
 
 /// ECDH encryption and decryption functions
-pub use ecdh::{ecdh_decrypt, ecdh_encrypt, rsa_decrypt, rsa_encrypt, ECDHDecrypt, ECDHEncrypt};
+pub use ecdh::{
+    ecdh_decrypt, ecdh_decrypt_with_handler, ecdh_encrypt, ecdh_encrypt_with_handler, rsa_decrypt,
+    rsa_encrypt, ECDHDecrypt, ECDHEncrypt,
+};
 
 /// Post-quantum encryption functions (requires `ml-kem` feature)
 #[cfg(feature = "ml-kem")]
@@ -101,3 +105,7 @@ pub use pkix::{
 
 /// Utility functions
 pub use utils::{decrypt_short_buffer, encrypt_short_buffer, mem_clr};
+
+/// TPM/HSM support (requires `tpm` feature)
+#[cfg(feature = "tpm")]
+pub use tpm::{ECDHHandler, TpmHandler};
