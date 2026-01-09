@@ -547,14 +547,14 @@ Comprehensive post-quantum cryptography support is available via feature flags. 
 # Enable signatures only (ML-DSA and SLH-DSA)
 cargo build --features post-quantum
 
-# Enable encryption (ML-KEM) - may fail on macOS/ARM due to AVX2 bug
+# Enable encryption (ML-KEM) - works on all platforms including macOS/ARM
 cargo build --features post-quantum,ml-kem
 
 # Enable everything
 cargo build --features post-quantum,ml-kem
 ```
 
-**Note**: On macOS/ARM (AArch64), `pqcrypto-kyber` v0.5 has a compilation bug where AVX2 functions are referenced even though the crate should use the "clean" (generic) implementation. ML-DSA and SLH-DSA signatures work fine. See [PQC_FEATURE_FLAG.md](./PQC_FEATURE_FLAG.md) for details.
+**Note**: ML-KEM uses RustCrypto's pure Rust `ml-kem` crate, which works on all platforms including macOS/ARM. No platform-specific issues or patches are required.
 
 #### Integration
 

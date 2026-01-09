@@ -41,9 +41,9 @@ ML-KEM provides post-quantum key encapsulation for encryption. Two security leve
 | ML-KEM-1024 | 256-bit | 1568 bytes | 3168 bytes | 1568 bytes |
 
 **Implementation Details:**
-- Uses `pqcrypto-kyber` v0.5.0
-- On x86/x86_64: Uses AVX2-optimized implementation if available, falls back to "clean" implementation
-- On AArch64: Should use "clean" (generic/portable) implementation, but compilation bug prevents building
+- Uses RustCrypto's `ml-kem` crate (pure Rust, FIPS 203-compliant)
+- Works on all platforms including macOS/ARM (no platform-specific issues)
+- Pure Rust implementation - no FFI or C dependencies
 - Key encapsulation uses AES-256-GCM for symmetric encryption
 
 ### ML-DSA (Signatures)
@@ -350,8 +350,8 @@ Post-quantum algorithms have different performance characteristics than classica
 
 5. **Platform Compatibility**:
    - ML-DSA and SLH-DSA work on all platforms
-   - ML-KEM may not compile on macOS/ARM due to `pqcrypto-kyber` bug
-   - Use feature flags to enable only what works on your platform
+   - ML-KEM works on all platforms including macOS/ARM (pure Rust implementation)
+   - Use feature flags to enable only what you need
 
 ## API Compatibility
 
@@ -387,50 +387,34 @@ Post-quantum cryptography support requires:
 
 ```toml
 [dependencies]
-pqcrypto-kyber = { version = "0.5", optional = true }      # ML-KEM
+ml-kem = { version = "0.3.0-pre.2", optional = true }  # ML-KEM (pure Rust, FIPS 203)
 pqcrypto-dilithium = { version = "0.5", optional = true }  # ML-DSA
 pqcrypto-sphincsplus = { version = "0.5", optional = true } # SLH-DSA
 pqcrypto-traits = { version = "0.3", optional = true }      # Traits
 
 [features]
 post-quantum = ["pqcrypto-dilithium", "pqcrypto-sphincsplus", "pqcrypto-traits"]
-ml-kem = ["pqcrypto-kyber"]
+ml-kem = ["dep:ml-kem", "dep:rand_core_09", "dep:zerocopy", "dep:hybrid-array", "dep:typenum"]
 ```
 
 ## Platform Compatibility
 
-### macOS/ARM (AArch64)
+### All Platforms
 
-- **ML-DSA**: Works (uses clean dilithium2/3/5 implementations)
-- **SLH-DSA**: Works (uses clean sphincsshake256 implementations)
-- **ML-KEM**: Compilation fails due to `pqcrypto-kyber` v0.5 bug
+- **ML-DSA**: Works on all platforms (uses clean dilithium2/3/5 implementations)
+- **SLH-DSA**: Works on all platforms (uses clean sphincsshake256 implementations)
+- **ML-KEM**: Works on all platforms including macOS/ARM (pure Rust implementation via RustCrypto's `ml-kem` crate)
 
-**Issue**: `pqcrypto-kyber` v0.5.0 has a bug where AVX2 FFI functions are referenced even on AArch64, causing compilation failures. The crate should automatically use the "clean" (generic/portable) implementation on AArch64, but the bug prevents this.
-
-**Workaround**: Use only the `post-quantum` feature (signatures only) on macOS/ARM, or wait for a fix in `pqcrypto-kyber`.
-
-### x86/x86_64
-
-- **ML-DSA**: Works
-- **SLH-DSA**: Works
-- **ML-KEM**: Works (uses AVX2-optimized implementation if available)
-
-### Other Platforms
-
-- **ML-DSA**: Should work (uses clean implementations)
-- **SLH-DSA**: Should work (uses clean implementations)
-- **ML-KEM**: May have issues depending on platform
+**Note**: ML-KEM uses RustCrypto's pure Rust `ml-kem` crate, which is FIPS 203-compliant and works on all platforms without any platform-specific issues or patches.
 
 ## Known Limitations
 
-1. **ML-KEM on AArch64**: Cannot compile due to `pqcrypto-kyber` bug
-2. **Key Reconstruction**: `from_private_key_bytes()` for PQC keys cannot derive public keys (limitation of underlying crates)
-3. **Large Signatures**: SLH-DSA signatures are very large (8-30 KB)
-4. **Performance**: PQC algorithms are generally slower than classical algorithms
+1. **Key Reconstruction**: `from_private_key_bytes()` for PQC keys cannot derive public keys (limitation of underlying crates)
+2. **Large Signatures**: SLH-DSA signatures are very large (8-30 KB)
+3. **Performance**: PQC algorithms are generally slower than classical algorithms
 
 ## Future Enhancements
 
-- Monitor `pqcrypto-kyber` for fixes to AArch64 compilation issues
 - Additional SLH-DSA variants (f, simple variants)
 - Performance optimizations
 - Hardware acceleration support

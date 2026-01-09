@@ -2916,19 +2916,13 @@ fn test_decrypt_aes_gcm_success() {
 }
 
 // ============================================================================
-// Kyber1024 Module Coverage Tests (patches/pqcrypto-kyber-0.5.0/src/kyber1024.rs)
+// Kyber1024 Module Coverage Tests (DEPRECATED - OLD IMPLEMENTATION)
 // ============================================================================
-// NOTE: These tests are disabled because pqcrypto-kyber is not available as a dependency.
-// The kyber1024 module is in the patches directory and is not directly accessible.
-// To enable these tests, add pqcrypto-kyber as a dependency and uncomment the tests below.
+// NOTE: These tests are for the old pqcrypto-kyber implementation which is no longer used.
+// We now use RustCrypto's ml-kem crate (pure Rust, works on all platforms).
+// These tests are kept for historical reference but are not applicable to the current implementation.
 //
-// Lines to cover: 120-125, 127, 129, 134-139, 141, 157-159, 161-166, 169, 172,
-//                 178-180, 182-186, 188, 191, 206-213, 216, 218, 224-228, 230
-
-// These tests are commented out because pqcrypto_kyber is not available as a dependency.
-// The kyber1024 module is in the patches directory and is not directly accessible.
-// To enable these tests, add pqcrypto-kyber as a dependency and uncomment the tests below.
-//
+// The current ML-KEM implementation is tested in tests/pqc_test.rs and tests/keys_test.rs.
 // Lines to cover: 120-125, 127, 129, 134-139, 141, 157-159, 161-166, 169, 172,
 //                 178-180, 182-186, 188, 191, 206-213, 216, 218, 224-228, 230
 
