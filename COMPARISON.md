@@ -39,7 +39,7 @@ This document provides a comprehensive comparison between the Rust `rust-bottle`
 | **ML-DSA-44** | Yes | Yes | Implemented in rust-bottle |
 | **ML-DSA-65** | Yes | Yes | Implemented in rust-bottle |
 | **ML-DSA-87** | Yes | Yes | Implemented in rust-bottle |
-| **SLH-DSA (12 variants)** | Yes (3 variants) | Yes | rust-bottle implements 3 SLH-DSA variants (128s, 192s, 256s) |
+| **SLH-DSA (12 variants)** | Yes (12 variants) | Yes | rust-bottle implements all 12 SLH-DSA variants (SHAKE-256 and SHA-2, s and f variants) |
 
 **Analysis**: Both libraries have comprehensive post-quantum cryptography support. rust-bottle implements ML-KEM (encryption), ML-DSA (signatures), and SLH-DSA (hash-based signatures) via optional feature flags.
 
@@ -147,7 +147,7 @@ Both libraries have comprehensive PQC support:
 
 **SLH-DSA (Hash-Based Signatures)**:
 - gobottle: 12 variants (SHA2/SHAKE, 128/192/256, s/f variants)
-- rust-bottle: 3 variants (128s, 192s, 256s - SHAKE-256 robust)
+- rust-bottle: 12 variants (SHA2/SHAKE, 128/192/256, s/f variants) - Full FIPS 205 compliance
 - Stateless hash-based signatures - Both support
 
 **Implementation Differences**:

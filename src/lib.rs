@@ -90,7 +90,11 @@ pub use keys::{EcdsaP256Key, Ed25519Key, RsaKey, X25519Key};
 
 /// Post-quantum signature key types (requires `post-quantum` feature)
 #[cfg(feature = "post-quantum")]
-pub use keys::{MlDsa44Key, MlDsa65Key, MlDsa87Key, SlhDsa128sKey, SlhDsa192sKey, SlhDsa256sKey};
+pub use keys::{
+    MlDsa44Key, MlDsa65Key, MlDsa87Key,
+    SlhDsa128sKey, SlhDsa128fKey, SlhDsa192sKey, SlhDsa192fKey, SlhDsa256sKey, SlhDsa256fKey,
+    SlhDsaSha2_128sKey, SlhDsaSha2_128fKey, SlhDsaSha2_192sKey, SlhDsaSha2_192fKey, SlhDsaSha2_256sKey, SlhDsaSha2_256fKey,
+};
 
 /// Post-quantum encryption key types (requires `ml-kem` feature)
 #[cfg(feature = "ml-kem")]

@@ -73,12 +73,39 @@ pub enum KeyType {
     /// SLH-DSA-128s (requires `post-quantum` feature)
     #[cfg(feature = "post-quantum")]
     SlhDsa128s,
+    /// SLH-DSA-128f (requires `post-quantum` feature)
+    #[cfg(feature = "post-quantum")]
+    SlhDsa128f,
     /// SLH-DSA-192s (requires `post-quantum` feature)
     #[cfg(feature = "post-quantum")]
     SlhDsa192s,
+    /// SLH-DSA-192f (requires `post-quantum` feature)
+    #[cfg(feature = "post-quantum")]
+    SlhDsa192f,
     /// SLH-DSA-256s (requires `post-quantum` feature)
     #[cfg(feature = "post-quantum")]
     SlhDsa256s,
+    /// SLH-DSA-256f (requires `post-quantum` feature)
+    #[cfg(feature = "post-quantum")]
+    SlhDsa256f,
+    /// SLH-DSA-SHA2-128s (requires `post-quantum` feature)
+    #[cfg(feature = "post-quantum")]
+    SlhDsaSha2_128s,
+    /// SLH-DSA-SHA2-128f (requires `post-quantum` feature)
+    #[cfg(feature = "post-quantum")]
+    SlhDsaSha2_128f,
+    /// SLH-DSA-SHA2-192s (requires `post-quantum` feature)
+    #[cfg(feature = "post-quantum")]
+    SlhDsaSha2_192s,
+    /// SLH-DSA-SHA2-192f (requires `post-quantum` feature)
+    #[cfg(feature = "post-quantum")]
+    SlhDsaSha2_192f,
+    /// SLH-DSA-SHA2-256s (requires `post-quantum` feature)
+    #[cfg(feature = "post-quantum")]
+    SlhDsaSha2_256s,
+    /// SLH-DSA-SHA2-256f (requires `post-quantum` feature)
+    #[cfg(feature = "post-quantum")]
+    SlhDsaSha2_256f,
 }
 
 impl KeyType {
@@ -105,7 +132,8 @@ impl KeyType {
                 ObjectIdentifier::new("1.3.6.1.4.1.2.267.7.4.4").expect("Invalid ML-DSA OID")
             }
             #[cfg(feature = "post-quantum")]
-            KeyType::SlhDsa128s | KeyType::SlhDsa192s | KeyType::SlhDsa256s => {
+            KeyType::SlhDsa128s | KeyType::SlhDsa128f | KeyType::SlhDsa192s | KeyType::SlhDsa192f | KeyType::SlhDsa256s | KeyType::SlhDsa256f
+            | KeyType::SlhDsaSha2_128s | KeyType::SlhDsaSha2_128f | KeyType::SlhDsaSha2_192s | KeyType::SlhDsaSha2_192f | KeyType::SlhDsaSha2_256s | KeyType::SlhDsaSha2_256f => {
                 // SLH-DSA OID (NIST standard) - placeholder, actual OID may differ
                 // Note: This is a placeholder OID - update when NIST publishes official OIDs
                 ObjectIdentifier::new("1.3.6.1.4.1.2.267.1.16.7").expect("Invalid SLH-DSA OID")
@@ -186,7 +214,8 @@ pub fn marshal_pkix_public_key_with_type(
             marshal_mldsa_pkix(public_key_bytes, key_type)
         }
         #[cfg(feature = "post-quantum")]
-        KeyType::SlhDsa128s | KeyType::SlhDsa192s | KeyType::SlhDsa256s => {
+        KeyType::SlhDsa128s | KeyType::SlhDsa128f | KeyType::SlhDsa192s | KeyType::SlhDsa192f | KeyType::SlhDsa256s | KeyType::SlhDsa256f
+        | KeyType::SlhDsaSha2_128s | KeyType::SlhDsaSha2_128f | KeyType::SlhDsaSha2_192s | KeyType::SlhDsaSha2_192f | KeyType::SlhDsaSha2_256s | KeyType::SlhDsaSha2_256f => {
             marshal_slhdsa_pkix(public_key_bytes, key_type)
         }
     }
@@ -317,7 +346,8 @@ pub fn marshal_pkcs8_private_key(private_key_bytes: &[u8], key_type: KeyType) ->
             marshal_mldsa_pkcs8(private_key_bytes, key_type)
         }
         #[cfg(feature = "post-quantum")]
-        KeyType::SlhDsa128s | KeyType::SlhDsa192s | KeyType::SlhDsa256s => {
+        KeyType::SlhDsa128s | KeyType::SlhDsa128f | KeyType::SlhDsa192s | KeyType::SlhDsa192f | KeyType::SlhDsa256s | KeyType::SlhDsa256f
+        | KeyType::SlhDsaSha2_128s | KeyType::SlhDsaSha2_128f | KeyType::SlhDsaSha2_192s | KeyType::SlhDsaSha2_192f | KeyType::SlhDsaSha2_256s | KeyType::SlhDsaSha2_256f => {
             marshal_slhdsa_pkcs8(private_key_bytes, key_type)
         }
     }
