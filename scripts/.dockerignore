@@ -1,0 +1,15 @@
+# Docker ignore file for rust-bottle builds
+target/
+.git/
+.gitignore
+*.md
+!README.md
+coverage/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Cargo.lock
+

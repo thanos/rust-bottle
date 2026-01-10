@@ -1,0 +1,31 @@
+# Dockerfile for building rust-bottle on Linux/ARM64
+# This can use native ARM64 Docker or QEMU emulation
+# Using latest stable Rust to support Cargo.lock v4
+FROM rust:latest
+
+# Install required dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    gcc-aarch64-linux-gnu \
+    libc6-dev-arm64-cross \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install cross-compilation target
+RUN rustup target add aarch64-unknown-linux-gnu
+
+# Set up cross-compilation linker
+ENV CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+
+# Set working directory
+WORKDIR /workspace
+
+# Pre-create target directory to avoid permission issues
+RUN mkdir -p /workspace/target
+
+# Default command
+CMD ["bash"]
+
