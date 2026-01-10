@@ -64,17 +64,33 @@ ML-DSA provides post-quantum digital signatures based on lattice cryptography. T
 
 ### SLH-DSA (Hash-Based Signatures)
 
-SLH-DSA provides post-quantum signatures based on hash functions. Three security levels are available:
+SLH-DSA provides post-quantum signatures based on hash functions. Twelve variants are available, matching the FIPS 205 standard:
 
+**SHAKE-256 Variants:**
 | Variant | Security Level | Public Key Size | Secret Key Size | Signature Size | Implementation |
 |---------|---------------|-----------------|-----------------|----------------|----------------|
 | SLH-DSA-128s | 128-bit | 32 bytes | 64 bytes | ~7856 bytes | sphincsshake256128srobust |
+| SLH-DSA-128f | 128-bit | 32 bytes | 64 bytes | ~17088 bytes | sphincsshake256128frobust |
 | SLH-DSA-192s | 192-bit | 48 bytes | 96 bytes | ~16224 bytes | sphincsshake256192srobust |
+| SLH-DSA-192f | 192-bit | 48 bytes | 96 bytes | ~35664 bytes | sphincsshake256192frobust |
 | SLH-DSA-256s | 256-bit | 64 bytes | 128 bytes | ~29792 bytes | sphincsshake256256srobust |
+| SLH-DSA-256f | 256-bit | 64 bytes | 128 bytes | ~49856 bytes | sphincsshake256256frobust |
+
+**SHA-2 Variants:**
+| Variant | Security Level | Public Key Size | Secret Key Size | Signature Size | Implementation |
+|---------|---------------|-----------------|-----------------|----------------|----------------|
+| SLH-DSA-SHA2-128s | 128-bit | 32 bytes | 64 bytes | ~7856 bytes | sphincssha256128srobust |
+| SLH-DSA-SHA2-128f | 128-bit | 32 bytes | 64 bytes | ~17088 bytes | sphincssha256128frobust |
+| SLH-DSA-SHA2-192s | 192-bit | 48 bytes | 96 bytes | ~16224 bytes | sphincssha256192srobust |
+| SLH-DSA-SHA2-192f | 192-bit | 48 bytes | 96 bytes | ~35664 bytes | sphincssha256192frobust |
+| SLH-DSA-SHA2-256s | 256-bit | 64 bytes | 128 bytes | ~29792 bytes | sphincssha256256srobust |
+| SLH-DSA-SHA2-256f | 256-bit | 64 bytes | 128 bytes | ~49856 bytes | sphincssha256256frobust |
 
 **Implementation Details:**
 - Uses `pqcrypto-sphincsplus` v0.5.3
-- Uses "robust" variants with SHAKE-256
+- Uses "robust" variants with SHAKE-256 or SHA-2
+- "s" variants: smaller signatures, slower signing
+- "f" variants: faster signing, larger signatures
 - Very large signatures but simple hash-based security model
 - Works on all platforms including macOS/ARM
 

@@ -10,7 +10,9 @@ use rust_bottle::{
 
 #[cfg(feature = "post-quantum")]
 use rust_bottle::{
-    MlDsa44Key, MlDsa65Key, MlDsa87Key, SlhDsa128sKey, SlhDsa192sKey, SlhDsa256sKey,
+    MlDsa44Key, MlDsa65Key, MlDsa87Key,
+    SlhDsa128sKey, SlhDsa128fKey, SlhDsa192sKey, SlhDsa192fKey, SlhDsa256sKey, SlhDsa256fKey,
+    SlhDsaSha2_128sKey, SlhDsaSha2_128fKey, SlhDsaSha2_192sKey, SlhDsaSha2_192fKey, SlhDsaSha2_256sKey, SlhDsaSha2_256fKey,
 };
 
 // Import common types
@@ -273,6 +275,109 @@ fn test_slhdsa256s_key_sizes() {
 
     assert_eq!(key.public_key_bytes().len(), 64);
     assert_eq!(key.private_key_bytes().len(), 128);
+}
+
+// SLH-DSA Fast Variants (SHAKE-256)
+
+#[cfg(feature = "post-quantum")]
+#[test]
+fn test_slhdsa128f_signing() {
+    let rng = &mut OsRng;
+    let key = SlhDsa128fKey::generate(rng);
+    let message = b"SLH-DSA-128f signed message";
+
+    let signature = key.sign(rng, message).unwrap();
+    assert!(key.verify(message, &signature).is_ok());
+}
+
+#[cfg(feature = "post-quantum")]
+#[test]
+fn test_slhdsa192f_signing() {
+    let rng = &mut OsRng;
+    let key = SlhDsa192fKey::generate(rng);
+    let message = b"SLH-DSA-192f signed message";
+
+    let signature = key.sign(rng, message).unwrap();
+    assert!(key.verify(message, &signature).is_ok());
+}
+
+#[cfg(feature = "post-quantum")]
+#[test]
+fn test_slhdsa256f_signing() {
+    let rng = &mut OsRng;
+    let key = SlhDsa256fKey::generate(rng);
+    let message = b"SLH-DSA-256f signed message";
+
+    let signature = key.sign(rng, message).unwrap();
+    assert!(key.verify(message, &signature).is_ok());
+}
+
+// SLH-DSA SHA-2 Variants
+
+#[cfg(feature = "post-quantum")]
+#[test]
+fn test_slhdsa_sha2_128s_signing() {
+    let rng = &mut OsRng;
+    let key = SlhDsaSha2_128sKey::generate(rng);
+    let message = b"SLH-DSA-SHA2-128s signed message";
+
+    let signature = key.sign(rng, message).unwrap();
+    assert!(key.verify(message, &signature).is_ok());
+}
+
+#[cfg(feature = "post-quantum")]
+#[test]
+fn test_slhdsa_sha2_128f_signing() {
+    let rng = &mut OsRng;
+    let key = SlhDsaSha2_128fKey::generate(rng);
+    let message = b"SLH-DSA-SHA2-128f signed message";
+
+    let signature = key.sign(rng, message).unwrap();
+    assert!(key.verify(message, &signature).is_ok());
+}
+
+#[cfg(feature = "post-quantum")]
+#[test]
+fn test_slhdsa_sha2_192s_signing() {
+    let rng = &mut OsRng;
+    let key = SlhDsaSha2_192sKey::generate(rng);
+    let message = b"SLH-DSA-SHA2-192s signed message";
+
+    let signature = key.sign(rng, message).unwrap();
+    assert!(key.verify(message, &signature).is_ok());
+}
+
+#[cfg(feature = "post-quantum")]
+#[test]
+fn test_slhdsa_sha2_192f_signing() {
+    let rng = &mut OsRng;
+    let key = SlhDsaSha2_192fKey::generate(rng);
+    let message = b"SLH-DSA-SHA2-192f signed message";
+
+    let signature = key.sign(rng, message).unwrap();
+    assert!(key.verify(message, &signature).is_ok());
+}
+
+#[cfg(feature = "post-quantum")]
+#[test]
+fn test_slhdsa_sha2_256s_signing() {
+    let rng = &mut OsRng;
+    let key = SlhDsaSha2_256sKey::generate(rng);
+    let message = b"SLH-DSA-SHA2-256s signed message";
+
+    let signature = key.sign(rng, message).unwrap();
+    assert!(key.verify(message, &signature).is_ok());
+}
+
+#[cfg(feature = "post-quantum")]
+#[test]
+fn test_slhdsa_sha2_256f_signing() {
+    let rng = &mut OsRng;
+    let key = SlhDsaSha2_256fKey::generate(rng);
+    let message = b"SLH-DSA-SHA2-256f signed message";
+
+    let signature = key.sign(rng, message).unwrap();
+    assert!(key.verify(message, &signature).is_ok());
 }
 
 // ============================================================================

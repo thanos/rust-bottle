@@ -46,7 +46,9 @@ cargo build --features post-quantum,ml-kem
 
 When the `post-quantum` feature is enabled:
 - **ML-DSA-44**, **ML-DSA-65**, **ML-DSA-87** signatures
-- **SLH-DSA-128s**, **SLH-DSA-192s**, **SLH-DSA-256s** signatures
+- **SLH-DSA-128s/128f**, **SLH-DSA-192s/192f**, **SLH-DSA-256s/256f** signatures (SHAKE-256)
+- **SLH-DSA-SHA2-128s/128f**, **SLH-DSA-SHA2-192s/192f**, **SLH-DSA-SHA2-256s/256f** signatures (SHA-2)
+- Total: 12 SLH-DSA variants matching FIPS 205 standard
 
 When the `ml-kem` feature is enabled (requires `post-quantum` for full functionality):
 - **ML-KEM-768** and **ML-KEM-1024** encryption

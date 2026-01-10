@@ -1601,3 +1601,746 @@ impl SignerKey for SlhDsa256sKey {
         self.public_key_bytes()
     }
 }
+
+#[cfg(feature = "post-quantum")]
+/// SLH-DSA-128f key pair for post-quantum hash-based signatures.
+///
+/// SLH-DSA-128f provides 128-bit security with faster signing but larger signatures
+/// compared to the "s" (small) variant.
+pub struct SlhDsa128fKey {
+    public_key: pqcrypto_sphincsplus::sphincsshake256128frobust::PublicKey,
+    secret_key: pqcrypto_sphincsplus::sphincsshake256128frobust::SecretKey,
+}
+
+#[cfg(feature = "post-quantum")]
+impl SlhDsa128fKey {
+    /// Generate a new SLH-DSA-128f key pair.
+    pub fn generate<R: RngCore + CryptoRng>(_rng: &mut R) -> Self {
+        let (public_key, secret_key) = pqcrypto_sphincsplus::sphincsshake256128frobust::keypair();
+        Self {
+            public_key,
+            secret_key,
+        }
+    }
+
+    /// Get the public key bytes.
+    pub fn public_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincsshake256128frobust::PublicKey as PqcPublicKey>::as_bytes(
+            &self.public_key,
+        )
+        .to_vec()
+    }
+
+    /// Get the private key bytes.
+    pub fn private_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincsshake256128frobust::SecretKey as PqcSecretKey>::as_bytes(
+            &self.secret_key,
+        )
+        .to_vec()
+    }
+
+    /// Create from private key bytes.
+    pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
+        let _secret_key = <pqcrypto_sphincsplus::sphincsshake256128frobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
+            .map_err(|_| BottleError::InvalidKeyType)?;
+        // Cannot derive public key from secret key in this API
+        Err(BottleError::InvalidKeyType)
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Sign for SlhDsa128fKey {
+    fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
+        let detached_sig = pqcrypto_sphincsplus::sphincsshake256128frobust::detached_sign(
+            message,
+            &self.secret_key,
+        );
+        Ok(<pqcrypto_sphincsplus::sphincsshake256128frobust::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Verify for SlhDsa128fKey {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
+        let detached_sig = <pqcrypto_sphincsplus::sphincsshake256128frobust::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
+            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_sphincsplus::sphincsshake256128frobust::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl SignerKey for SlhDsa128fKey {
+    fn fingerprint(&self) -> Vec<u8> {
+        crate::hash::sha256(&self.public_key_bytes())
+    }
+
+    fn public_key(&self) -> Vec<u8> {
+        self.public_key_bytes()
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+/// SLH-DSA-192f key pair for post-quantum hash-based signatures.
+///
+/// SLH-DSA-192f provides 192-bit security with faster signing but larger signatures.
+pub struct SlhDsa192fKey {
+    public_key: pqcrypto_sphincsplus::sphincsshake256192frobust::PublicKey,
+    secret_key: pqcrypto_sphincsplus::sphincsshake256192frobust::SecretKey,
+}
+
+#[cfg(feature = "post-quantum")]
+impl SlhDsa192fKey {
+    /// Generate a new SLH-DSA-192f key pair.
+    pub fn generate<R: RngCore + CryptoRng>(_rng: &mut R) -> Self {
+        let (public_key, secret_key) = pqcrypto_sphincsplus::sphincsshake256192frobust::keypair();
+        Self {
+            public_key,
+            secret_key,
+        }
+    }
+
+    /// Get the public key bytes.
+    pub fn public_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincsshake256192frobust::PublicKey as PqcPublicKey>::as_bytes(
+            &self.public_key,
+        )
+        .to_vec()
+    }
+
+    /// Get the private key bytes.
+    pub fn private_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincsshake256192frobust::SecretKey as PqcSecretKey>::as_bytes(
+            &self.secret_key,
+        )
+        .to_vec()
+    }
+
+    /// Create from private key bytes.
+    pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
+        let _secret_key = <pqcrypto_sphincsplus::sphincsshake256192frobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
+            .map_err(|_| BottleError::InvalidKeyType)?;
+        // Cannot derive public key from secret key in this API
+        Err(BottleError::InvalidKeyType)
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Sign for SlhDsa192fKey {
+    fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
+        let detached_sig = pqcrypto_sphincsplus::sphincsshake256192frobust::detached_sign(
+            message,
+            &self.secret_key,
+        );
+        Ok(<pqcrypto_sphincsplus::sphincsshake256192frobust::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Verify for SlhDsa192fKey {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
+        let detached_sig = <pqcrypto_sphincsplus::sphincsshake256192frobust::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
+            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_sphincsplus::sphincsshake256192frobust::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl SignerKey for SlhDsa192fKey {
+    fn fingerprint(&self) -> Vec<u8> {
+        crate::hash::sha256(&self.public_key_bytes())
+    }
+
+    fn public_key(&self) -> Vec<u8> {
+        self.public_key_bytes()
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+/// SLH-DSA-256f key pair for post-quantum hash-based signatures.
+///
+/// SLH-DSA-256f provides 256-bit security with faster signing but larger signatures.
+pub struct SlhDsa256fKey {
+    public_key: pqcrypto_sphincsplus::sphincsshake256256frobust::PublicKey,
+    secret_key: pqcrypto_sphincsplus::sphincsshake256256frobust::SecretKey,
+}
+
+#[cfg(feature = "post-quantum")]
+impl SlhDsa256fKey {
+    /// Generate a new SLH-DSA-256f key pair.
+    pub fn generate<R: RngCore + CryptoRng>(_rng: &mut R) -> Self {
+        let (public_key, secret_key) = pqcrypto_sphincsplus::sphincsshake256256frobust::keypair();
+        Self {
+            public_key,
+            secret_key,
+        }
+    }
+
+    /// Get the public key bytes.
+    pub fn public_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincsshake256256frobust::PublicKey as PqcPublicKey>::as_bytes(
+            &self.public_key,
+        )
+        .to_vec()
+    }
+
+    /// Get the private key bytes.
+    pub fn private_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincsshake256256frobust::SecretKey as PqcSecretKey>::as_bytes(
+            &self.secret_key,
+        )
+        .to_vec()
+    }
+
+    /// Create from private key bytes.
+    pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
+        let _secret_key = <pqcrypto_sphincsplus::sphincsshake256256frobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
+            .map_err(|_| BottleError::InvalidKeyType)?;
+        // Cannot derive public key from secret key in this API
+        Err(BottleError::InvalidKeyType)
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Sign for SlhDsa256fKey {
+    fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
+        let detached_sig = pqcrypto_sphincsplus::sphincsshake256256frobust::detached_sign(
+            message,
+            &self.secret_key,
+        );
+        Ok(<pqcrypto_sphincsplus::sphincsshake256256frobust::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Verify for SlhDsa256fKey {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
+        let detached_sig = <pqcrypto_sphincsplus::sphincsshake256256frobust::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
+            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_sphincsplus::sphincsshake256256frobust::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl SignerKey for SlhDsa256fKey {
+    fn fingerprint(&self) -> Vec<u8> {
+        crate::hash::sha256(&self.public_key_bytes())
+    }
+
+    fn public_key(&self) -> Vec<u8> {
+        self.public_key_bytes()
+    }
+}
+
+// SHA-2 based SLH-DSA variants
+
+#[cfg(feature = "post-quantum")]
+/// SLH-DSA-SHA2-128s key pair for post-quantum hash-based signatures.
+///
+/// SLH-DSA-SHA2-128s provides 128-bit security using SHA-2 hash function
+/// with smaller signatures but slower signing compared to the "f" variant.
+pub struct SlhDsaSha2_128sKey {
+    public_key: pqcrypto_sphincsplus::sphincssha256128srobust::PublicKey,
+    secret_key: pqcrypto_sphincsplus::sphincssha256128srobust::SecretKey,
+}
+
+#[cfg(feature = "post-quantum")]
+impl SlhDsaSha2_128sKey {
+    /// Generate a new SLH-DSA-SHA2-128s key pair.
+    pub fn generate<R: RngCore + CryptoRng>(_rng: &mut R) -> Self {
+        let (public_key, secret_key) = pqcrypto_sphincsplus::sphincssha256128srobust::keypair();
+        Self {
+            public_key,
+            secret_key,
+        }
+    }
+
+    /// Get the public key bytes.
+    pub fn public_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincssha256128srobust::PublicKey as PqcPublicKey>::as_bytes(
+            &self.public_key,
+        )
+        .to_vec()
+    }
+
+    /// Get the private key bytes.
+    pub fn private_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincssha256128srobust::SecretKey as PqcSecretKey>::as_bytes(
+            &self.secret_key,
+        )
+        .to_vec()
+    }
+
+    /// Create from private key bytes.
+    pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
+        let _secret_key = <pqcrypto_sphincsplus::sphincssha256128srobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
+            .map_err(|_| BottleError::InvalidKeyType)?;
+        // Cannot derive public key from secret key in this API
+        Err(BottleError::InvalidKeyType)
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Sign for SlhDsaSha2_128sKey {
+    fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
+        let detached_sig = pqcrypto_sphincsplus::sphincssha256128srobust::detached_sign(
+            message,
+            &self.secret_key,
+        );
+        Ok(<pqcrypto_sphincsplus::sphincssha256128srobust::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Verify for SlhDsaSha2_128sKey {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
+        let detached_sig = <pqcrypto_sphincsplus::sphincssha256128srobust::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
+            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_sphincsplus::sphincssha256128srobust::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl SignerKey for SlhDsaSha2_128sKey {
+    fn fingerprint(&self) -> Vec<u8> {
+        crate::hash::sha256(&self.public_key_bytes())
+    }
+
+    fn public_key(&self) -> Vec<u8> {
+        self.public_key_bytes()
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+/// SLH-DSA-SHA2-128f key pair for post-quantum hash-based signatures.
+///
+/// SLH-DSA-SHA2-128f provides 128-bit security using SHA-2 hash function
+/// with faster signing but larger signatures.
+pub struct SlhDsaSha2_128fKey {
+    public_key: pqcrypto_sphincsplus::sphincssha256128frobust::PublicKey,
+    secret_key: pqcrypto_sphincsplus::sphincssha256128frobust::SecretKey,
+}
+
+#[cfg(feature = "post-quantum")]
+impl SlhDsaSha2_128fKey {
+    /// Generate a new SLH-DSA-SHA2-128f key pair.
+    pub fn generate<R: RngCore + CryptoRng>(_rng: &mut R) -> Self {
+        let (public_key, secret_key) = pqcrypto_sphincsplus::sphincssha256128frobust::keypair();
+        Self {
+            public_key,
+            secret_key,
+        }
+    }
+
+    /// Get the public key bytes.
+    pub fn public_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincssha256128frobust::PublicKey as PqcPublicKey>::as_bytes(
+            &self.public_key,
+        )
+        .to_vec()
+    }
+
+    /// Get the private key bytes.
+    pub fn private_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincssha256128frobust::SecretKey as PqcSecretKey>::as_bytes(
+            &self.secret_key,
+        )
+        .to_vec()
+    }
+
+    /// Create from private key bytes.
+    pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
+        let _secret_key = <pqcrypto_sphincsplus::sphincssha256128frobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
+            .map_err(|_| BottleError::InvalidKeyType)?;
+        // Cannot derive public key from secret key in this API
+        Err(BottleError::InvalidKeyType)
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Sign for SlhDsaSha2_128fKey {
+    fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
+        let detached_sig = pqcrypto_sphincsplus::sphincssha256128frobust::detached_sign(
+            message,
+            &self.secret_key,
+        );
+        Ok(<pqcrypto_sphincsplus::sphincssha256128frobust::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Verify for SlhDsaSha2_128fKey {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
+        let detached_sig = <pqcrypto_sphincsplus::sphincssha256128frobust::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
+            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_sphincsplus::sphincssha256128frobust::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl SignerKey for SlhDsaSha2_128fKey {
+    fn fingerprint(&self) -> Vec<u8> {
+        crate::hash::sha256(&self.public_key_bytes())
+    }
+
+    fn public_key(&self) -> Vec<u8> {
+        self.public_key_bytes()
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+/// SLH-DSA-SHA2-192s key pair for post-quantum hash-based signatures.
+///
+/// SLH-DSA-SHA2-192s provides 192-bit security using SHA-2 hash function.
+pub struct SlhDsaSha2_192sKey {
+    public_key: pqcrypto_sphincsplus::sphincssha256192srobust::PublicKey,
+    secret_key: pqcrypto_sphincsplus::sphincssha256192srobust::SecretKey,
+}
+
+#[cfg(feature = "post-quantum")]
+impl SlhDsaSha2_192sKey {
+    /// Generate a new SLH-DSA-SHA2-192s key pair.
+    pub fn generate<R: RngCore + CryptoRng>(_rng: &mut R) -> Self {
+        let (public_key, secret_key) = pqcrypto_sphincsplus::sphincssha256192srobust::keypair();
+        Self {
+            public_key,
+            secret_key,
+        }
+    }
+
+    /// Get the public key bytes.
+    pub fn public_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincssha256192srobust::PublicKey as PqcPublicKey>::as_bytes(
+            &self.public_key,
+        )
+        .to_vec()
+    }
+
+    /// Get the private key bytes.
+    pub fn private_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincssha256192srobust::SecretKey as PqcSecretKey>::as_bytes(
+            &self.secret_key,
+        )
+        .to_vec()
+    }
+
+    /// Create from private key bytes.
+    pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
+        let _secret_key = <pqcrypto_sphincsplus::sphincssha256192srobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
+            .map_err(|_| BottleError::InvalidKeyType)?;
+        // Cannot derive public key from secret key in this API
+        Err(BottleError::InvalidKeyType)
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Sign for SlhDsaSha2_192sKey {
+    fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
+        let detached_sig = pqcrypto_sphincsplus::sphincssha256192srobust::detached_sign(
+            message,
+            &self.secret_key,
+        );
+        Ok(<pqcrypto_sphincsplus::sphincssha256192srobust::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Verify for SlhDsaSha2_192sKey {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
+        let detached_sig = <pqcrypto_sphincsplus::sphincssha256192srobust::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
+            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_sphincsplus::sphincssha256192srobust::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl SignerKey for SlhDsaSha2_192sKey {
+    fn fingerprint(&self) -> Vec<u8> {
+        crate::hash::sha256(&self.public_key_bytes())
+    }
+
+    fn public_key(&self) -> Vec<u8> {
+        self.public_key_bytes()
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+/// SLH-DSA-SHA2-192f key pair for post-quantum hash-based signatures.
+///
+/// SLH-DSA-SHA2-192f provides 192-bit security using SHA-2 hash function.
+pub struct SlhDsaSha2_192fKey {
+    public_key: pqcrypto_sphincsplus::sphincssha256192frobust::PublicKey,
+    secret_key: pqcrypto_sphincsplus::sphincssha256192frobust::SecretKey,
+}
+
+#[cfg(feature = "post-quantum")]
+impl SlhDsaSha2_192fKey {
+    /// Generate a new SLH-DSA-SHA2-192f key pair.
+    pub fn generate<R: RngCore + CryptoRng>(_rng: &mut R) -> Self {
+        let (public_key, secret_key) = pqcrypto_sphincsplus::sphincssha256192frobust::keypair();
+        Self {
+            public_key,
+            secret_key,
+        }
+    }
+
+    /// Get the public key bytes.
+    pub fn public_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincssha256192frobust::PublicKey as PqcPublicKey>::as_bytes(
+            &self.public_key,
+        )
+        .to_vec()
+    }
+
+    /// Get the private key bytes.
+    pub fn private_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincssha256192frobust::SecretKey as PqcSecretKey>::as_bytes(
+            &self.secret_key,
+        )
+        .to_vec()
+    }
+
+    /// Create from private key bytes.
+    pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
+        let _secret_key = <pqcrypto_sphincsplus::sphincssha256192frobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
+            .map_err(|_| BottleError::InvalidKeyType)?;
+        // Cannot derive public key from secret key in this API
+        Err(BottleError::InvalidKeyType)
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Sign for SlhDsaSha2_192fKey {
+    fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
+        let detached_sig = pqcrypto_sphincsplus::sphincssha256192frobust::detached_sign(
+            message,
+            &self.secret_key,
+        );
+        Ok(<pqcrypto_sphincsplus::sphincssha256192frobust::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Verify for SlhDsaSha2_192fKey {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
+        let detached_sig = <pqcrypto_sphincsplus::sphincssha256192frobust::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
+            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_sphincsplus::sphincssha256192frobust::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl SignerKey for SlhDsaSha2_192fKey {
+    fn fingerprint(&self) -> Vec<u8> {
+        crate::hash::sha256(&self.public_key_bytes())
+    }
+
+    fn public_key(&self) -> Vec<u8> {
+        self.public_key_bytes()
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+/// SLH-DSA-SHA2-256s key pair for post-quantum hash-based signatures.
+///
+/// SLH-DSA-SHA2-256s provides 256-bit security using SHA-2 hash function.
+pub struct SlhDsaSha2_256sKey {
+    public_key: pqcrypto_sphincsplus::sphincssha256256srobust::PublicKey,
+    secret_key: pqcrypto_sphincsplus::sphincssha256256srobust::SecretKey,
+}
+
+#[cfg(feature = "post-quantum")]
+impl SlhDsaSha2_256sKey {
+    /// Generate a new SLH-DSA-SHA2-256s key pair.
+    pub fn generate<R: RngCore + CryptoRng>(_rng: &mut R) -> Self {
+        let (public_key, secret_key) = pqcrypto_sphincsplus::sphincssha256256srobust::keypair();
+        Self {
+            public_key,
+            secret_key,
+        }
+    }
+
+    /// Get the public key bytes.
+    pub fn public_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincssha256256srobust::PublicKey as PqcPublicKey>::as_bytes(
+            &self.public_key,
+        )
+        .to_vec()
+    }
+
+    /// Get the private key bytes.
+    pub fn private_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincssha256256srobust::SecretKey as PqcSecretKey>::as_bytes(
+            &self.secret_key,
+        )
+        .to_vec()
+    }
+
+    /// Create from private key bytes.
+    pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
+        let _secret_key = <pqcrypto_sphincsplus::sphincssha256256srobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
+            .map_err(|_| BottleError::InvalidKeyType)?;
+        // Cannot derive public key from secret key in this API
+        Err(BottleError::InvalidKeyType)
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Sign for SlhDsaSha2_256sKey {
+    fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
+        let detached_sig = pqcrypto_sphincsplus::sphincssha256256srobust::detached_sign(
+            message,
+            &self.secret_key,
+        );
+        Ok(<pqcrypto_sphincsplus::sphincssha256256srobust::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Verify for SlhDsaSha2_256sKey {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
+        let detached_sig = <pqcrypto_sphincsplus::sphincssha256256srobust::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
+            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_sphincsplus::sphincssha256256srobust::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl SignerKey for SlhDsaSha2_256sKey {
+    fn fingerprint(&self) -> Vec<u8> {
+        crate::hash::sha256(&self.public_key_bytes())
+    }
+
+    fn public_key(&self) -> Vec<u8> {
+        self.public_key_bytes()
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+/// SLH-DSA-SHA2-256f key pair for post-quantum hash-based signatures.
+///
+/// SLH-DSA-SHA2-256f provides 256-bit security using SHA-2 hash function.
+pub struct SlhDsaSha2_256fKey {
+    public_key: pqcrypto_sphincsplus::sphincssha256256frobust::PublicKey,
+    secret_key: pqcrypto_sphincsplus::sphincssha256256frobust::SecretKey,
+}
+
+#[cfg(feature = "post-quantum")]
+impl SlhDsaSha2_256fKey {
+    /// Generate a new SLH-DSA-SHA2-256f key pair.
+    pub fn generate<R: RngCore + CryptoRng>(_rng: &mut R) -> Self {
+        let (public_key, secret_key) = pqcrypto_sphincsplus::sphincssha256256frobust::keypair();
+        Self {
+            public_key,
+            secret_key,
+        }
+    }
+
+    /// Get the public key bytes.
+    pub fn public_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincssha256256frobust::PublicKey as PqcPublicKey>::as_bytes(
+            &self.public_key,
+        )
+        .to_vec()
+    }
+
+    /// Get the private key bytes.
+    pub fn private_key_bytes(&self) -> Vec<u8> {
+        <pqcrypto_sphincsplus::sphincssha256256frobust::SecretKey as PqcSecretKey>::as_bytes(
+            &self.secret_key,
+        )
+        .to_vec()
+    }
+
+    /// Create from private key bytes.
+    pub fn from_private_key_bytes(bytes: &[u8]) -> Result<Self> {
+        let _secret_key = <pqcrypto_sphincsplus::sphincssha256256frobust::SecretKey as PqcSecretKey>::from_bytes(bytes)
+            .map_err(|_| BottleError::InvalidKeyType)?;
+        // Cannot derive public key from secret key in this API
+        Err(BottleError::InvalidKeyType)
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Sign for SlhDsaSha2_256fKey {
+    fn sign(&self, _rng: &mut dyn RngCore, message: &[u8]) -> Result<Vec<u8>> {
+        let detached_sig = pqcrypto_sphincsplus::sphincssha256256frobust::detached_sign(
+            message,
+            &self.secret_key,
+        );
+        Ok(<pqcrypto_sphincsplus::sphincssha256256frobust::DetachedSignature as PqcDetachedSignature>::as_bytes(&detached_sig).to_vec())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl Verify for SlhDsaSha2_256fKey {
+    fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
+        let detached_sig = <pqcrypto_sphincsplus::sphincssha256256frobust::DetachedSignature as PqcDetachedSignature>::from_bytes(signature)
+            .map_err(|_| BottleError::VerifyFailed)?;
+        pqcrypto_sphincsplus::sphincssha256256frobust::verify_detached_signature(
+            &detached_sig,
+            message,
+            &self.public_key,
+        )
+        .map_err(|_| BottleError::VerifyFailed)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "post-quantum")]
+impl SignerKey for SlhDsaSha2_256fKey {
+    fn fingerprint(&self) -> Vec<u8> {
+        crate::hash::sha256(&self.public_key_bytes())
+    }
+
+    fn public_key(&self) -> Vec<u8> {
+        self.public_key_bytes()
+    }
+}

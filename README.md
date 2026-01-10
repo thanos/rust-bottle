@@ -534,9 +534,13 @@ Comprehensive post-quantum cryptography support is available via feature flags. 
 - **ML-DSA-44**: Post-quantum signatures (128-bit security) - Uses dilithium2
 - **ML-DSA-65**: Post-quantum signatures (192-bit security) - Uses dilithium3
 - **ML-DSA-87**: Post-quantum signatures (256-bit security) - Uses dilithium5
-- **SLH-DSA-128s**: Hash-based signatures (128-bit security) - Uses sphincsshake256128srobust
-- **SLH-DSA-192s**: Hash-based signatures (192-bit security) - Uses sphincsshake256192srobust
-- **SLH-DSA-256s**: Hash-based signatures (256-bit security) - Uses sphincsshake256256srobust
+- **SLH-DSA-128s/128f**: Hash-based signatures (128-bit security) - SHAKE-256 variants
+- **SLH-DSA-192s/192f**: Hash-based signatures (192-bit security) - SHAKE-256 variants
+- **SLH-DSA-256s/256f**: Hash-based signatures (256-bit security) - SHAKE-256 variants
+- **SLH-DSA-SHA2-128s/128f**: Hash-based signatures (128-bit security) - SHA-2 variants
+- **SLH-DSA-SHA2-192s/192f**: Hash-based signatures (192-bit security) - SHA-2 variants
+- **SLH-DSA-SHA2-256s/256f**: Hash-based signatures (256-bit security) - SHA-2 variants
+- Total: 12 SLH-DSA variants matching FIPS 205 standard
 
 **Hybrid Encryption (requires `ml-kem` feature):**
 - **ML-KEM-768 + X25519**: Combines post-quantum and classical security
