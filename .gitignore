@@ -3,6 +3,11 @@
 **/*.rs.bk
 Cargo.lock
 
+# Cargo configuration
+# Allow .cargo/config.toml (project settings) but ignore other files
+.cargo/*
+!.cargo/config.toml
+
 # Coverage reports
 coverage/
 *.profraw

@@ -1,0 +1,24 @@
+# Dockerfile for building rust-bottle on Linux/x86_64
+# Using latest stable Rust to support Cargo.lock v4
+FROM rust:latest
+
+# Install required dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install cross-compilation target (native for x86_64, but good to be explicit)
+RUN rustup target add x86_64-unknown-linux-gnu
+
+# Set working directory
+WORKDIR /workspace
+
+# Pre-create target directory to avoid permission issues
+RUN mkdir -p /workspace/target
+
+# Default command
+CMD ["bash"]
+
