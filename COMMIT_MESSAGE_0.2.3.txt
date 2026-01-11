@@ -1,0 +1,47 @@
+Add cross-platform build scripts and infrastructure
+
+This commit adds comprehensive cross-platform build and testing infrastructure
+for rust-bottle, enabling automated builds across all supported platforms from
+a single macOS/ARM development machine.
+
+New Features:
+- Cross-platform build scripts for macOS/ARM, macOS/x86_64, Linux/x86_64, and Linux/ARM64
+- Docker and Podman support for Linux builds with automatic runtime detection
+- Dockerfiles for Linux x86_64 and ARM64 builds using latest Rust
+- Prerequisites checking script to verify build environment setup
+- Quick build test script for fast compilation verification
+- Alternative build script using cross tool for efficient cross-compilation
+- Comprehensive build documentation in scripts/README_BUILD.md
+
+Infrastructure:
+- Added .cargo/config.toml for cross-compilation linker configuration
+- Updated .gitignore to allow .cargo/config.toml while ignoring other cargo files
+- Docker images use rust:latest to support Cargo.lock v4 format
+- All scripts are bash 3.2+ compatible for macOS compatibility
+
+Build Scripts:
+- build-all-platforms.sh: Orchestrates builds for all platforms
+- build-macos-arm.sh: Native macOS/ARM builds
+- build-macos-x86_64.sh: macOS/x86_64 builds using Rosetta 2
+- build-linux-x86_64.sh: Linux/x86_64 builds using Docker/Podman
+- build-linux-arm64.sh: Linux/ARM64 builds using Docker/Podman
+- build-using-cross.sh: Alternative using cross tool
+- check-prerequisites.sh: Verify required tools and setup
+- quick-build-test.sh: Quick compilation test without full test suite
+
+Docker Support:
+- Dockerfile.linux-x86_64: Linux x86_64 build environment
+- Dockerfile.linux-arm64: Linux ARM64 build environment with cross-compilation
+- .dockerignore: Excludes unnecessary files from Docker builds
+- Automatic detection of Docker vs Podman (prefers Podman if available)
+
+Documentation:
+- scripts/README_BUILD.md: Complete guide for cross-platform builds
+- Includes troubleshooting, prerequisites, and usage examples
+- Documents Docker vs Podman differences and usage
+
+This infrastructure enables:
+- Automated testing across all target platforms
+- CI/CD integration for multi-platform builds
+- Easy verification of cross-compilation setup
+- Consistent build environments across development machines
